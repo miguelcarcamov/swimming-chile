@@ -1061,24 +1061,9 @@ def drop_result_rows_with_athlete_gender_conflict(result_df, athlete_df) -> Tupl
         for key, genders in genders_by_identity.items()
         if len(genders) == 1
     }
-    keep_indexes = []
+
+    filtered_df = result_df
     dropped = 0
-    for index, row in result_df.iterrows():
-        event_gender = athlete_gender_from_event_name(row.get("event_name"))
-        if not event_gender:
-            keep_indexes.append(index)
-            continue
-        key = result_identity_key(row)
-        athlete_gender = gender_by_identity.get(key)
-        if athlete_gender and athlete_gender != event_gender:
-            dropped += 1
-            continue
-        keep_indexes.append(index)
-
-    filtered_df = result_df.loc[keep_indexes].reset_index(drop=True)
-    if "result_time_ms" not in filtered_df.columns:
-        return (filtered_df, dropped) if dropped else (result_df, 0)
-
     result_genders_by_identity: Dict[Tuple[str, str, str], set[str]] = defaultdict(set)
     for _, row in filtered_df.iterrows():
         key = result_identity_key(row)
@@ -1086,6 +1071,7 @@ def drop_result_rows_with_athlete_gender_conflict(result_df, athlete_df) -> Tupl
         if key and event_gender in {"female", "male"}:
             result_genders_by_identity[key].add(event_gender)
 
+    short_mixed_drop_identities = set()
     keep_indexes = []
     for index, row in filtered_df.iterrows():
         key = result_identity_key(row)
@@ -1094,6 +1080,39 @@ def drop_result_rows_with_athlete_gender_conflict(result_df, athlete_df) -> Tupl
             and result_genders_by_identity.get(key) == {"female", "male"}
             and is_implausibly_short_distance_result(row)
         ):
+            dropped += 1
+            short_mixed_drop_identities.add(key)
+            continue
+        keep_indexes.append(index)
+
+    filtered_df = filtered_df.loc[keep_indexes].reset_index(drop=True) if dropped else filtered_df
+
+    # In two-column HY-TEK PDFs, a page continuation can place a short sprint row
+    # under a 200m header. Prefer coherent same-document result gender after
+    # removing those impossible rows, because athlete.csv inherits the bad header.
+    result_gender_by_identity: Dict[Tuple[str, str, str], str] = {}
+    result_genders_by_identity = defaultdict(set)
+    for _, row in filtered_df.iterrows():
+        key = result_identity_key(row)
+        event_gender = athlete_gender_from_event_name(row.get("event_name"))
+        if key and event_gender in {"female", "male"}:
+            result_genders_by_identity[key].add(event_gender)
+    for key, genders in result_genders_by_identity.items():
+        if len(genders) == 1:
+            result_gender_by_identity[key] = next(iter(genders))
+
+    keep_indexes = []
+    for index, row in filtered_df.iterrows():
+        event_gender = athlete_gender_from_event_name(row.get("event_name"))
+        if not event_gender:
+            keep_indexes.append(index)
+            continue
+        key = result_identity_key(row)
+        if key in short_mixed_drop_identities:
+            inferred_gender = result_gender_by_identity.get(key) or gender_by_identity.get(key)
+        else:
+            inferred_gender = gender_by_identity.get(key)
+        if inferred_gender and inferred_gender != event_gender:
             dropped += 1
             continue
         keep_indexes.append(index)
