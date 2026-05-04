@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { athleteService } from '../api/athleteService';
 import { LoadingState } from '../../../components/ui/LoadingState';
@@ -8,6 +8,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 
 export const AthleteProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data: athlete, isLoading, isError, refetch } = useQuery({
     queryKey: ['athlete', id],
@@ -23,12 +24,15 @@ export const AthleteProfilePage: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Breadcrumb / Back button */}
       <div className="mb-6">
-        <Link to="/" className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        <button 
+          onClick={() => navigate(-1)}
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver a Atletas
-        </Link>
+          Volver atrás
+        </button>
       </div>
 
       {/* Header Profile */}

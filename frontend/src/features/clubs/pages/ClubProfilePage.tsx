@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { clubService } from '../api/clubService';
 import { athleteService } from '../../athletes/api/athleteService';
@@ -9,6 +9,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 
 export const ClubProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   // Fetch Club details (en un escenario real habría un getClubById, por ahora buscamos en la lista)
   const { data: clubsResponse, isLoading: loadingClub } = useQuery({
@@ -32,12 +33,15 @@ export const ClubProfilePage: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="mb-6">
-        <Link to="/clubs" className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1">
+        <button 
+          onClick={() => navigate(-1)}
+          className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer bg-transparent border-none p-0"
+        >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver a Clubes
-        </Link>
+          Volver atrás
+        </button>
       </div>
 
       {/* Header Club */}
