@@ -144,6 +144,13 @@ Bloquean la carga y dejan el lote en `requires_review`:
 - `debug_unparsed_lines.csv` supera el umbral permitido.
 - Hay valores fuera del canon documentado para genero, estilo o status.
 - Hay filas de resultado sin `event_name` o sin identidad observable de atleta/equipo.
+- `result.csv` trae resultados individuales cuya `age_at_event` no calza con
+  el rango etario del `event_name`. Esto bloquea la carga porque suele indicar
+  una mala asignacion de columna/evento del parser; el resultado no debe
+  descartarse automaticamente, debe reclasificarse o revisarse.
+- `result.csv` trae resultados individuales cuyo atleta curado tiene genero
+  contrario al genero del `event_name`. Esto bloquea la carga salvo que exista
+  una correccion pre-load revisada.
 - Hay residuos conocidos de OCR en nombres de atletas de `athlete.csv`,
   `result.csv` o `relay_swimmer.csv`, como vocal seguida de vocal acentuada
   (`Goámez`, `AÁlvarez`, `Lucíá`, `Muüller`) o ene/eñe separada (`Yañ ñez`).
@@ -288,6 +295,11 @@ Pipeline:
   genero inferido del evento contradice la identidad de atleta ya curada, o
   cuando la misma identidad aparece en ambos generos y la fila sospechosa trae
   un tiempo de distancia larga claramente recortado por layout/OCR.
+- La materializacion pre-load puede reclasificar `event_name` de filas de
+  `result.csv` mediante decisiones revisadas cuando el PDF contiene resultados
+  reales, pero el parser los asigno al evento equivocado por continuidad de
+  columnas. Esta correccion debe mover la fila al evento correcto; no debe
+  eliminar el resultado real.
 - Persiste `--competition-scope` en `competition.competition_scope` cuando crea
   o reutiliza una competencia.
 - Registra `source_document`, `load_run` y `validation_issue`.

@@ -29,7 +29,7 @@ from natacion_chile.domain.normalization import (
     normalize_swim_time_text,
 )
 
-PARSER_VERSION = "0.1.19"
+PARSER_VERSION = "0.1.20"
 
 try:
     import pdfplumber
@@ -1745,15 +1745,20 @@ def parse_hytek_multicolumn_pdf(pdf_path: Path, column_ranges: Optional[List[Tup
     )
     if column_ranges is None:
         column_ranges = [(0, 205), (205, 405), (405, 620)]
-    current_events: Dict[int, Optional[EventContext]] = {index: None for index, _ in enumerate(column_ranges)}
-    last_relay_team_names: Dict[int, Optional[str]] = {index: None for index, _ in enumerate(column_ranges)}
-    relay_leg_orders: Dict[int, int] = {index: 1 for index, _ in enumerate(column_ranges)}
+    current_event: Optional[EventContext] = None
+    last_relay_team_name: Optional[str] = None
+    relay_leg_order = 1
 
     with pdfplumber.open(pdf_path) as pdf:
         for page_index, page in enumerate(pdf.pages, start=1):
             words = page.extract_words(x_tolerance=1.5, y_tolerance=3, keep_blank_chars=False)
-            for line_number, word_row in enumerate(group_words_by_row(words), start=1):
-                for column_index, (left, right) in enumerate(column_ranges):
+            word_rows = list(group_words_by_row(words))
+            # HY-TEK multicolumna fluye por columna logica, no por filas fisicas.
+            # Si leemos fila->columna, una continuacion de la columna derecha puede
+            # quedar asignada al evento viejo antes de ver el encabezado real ubicado
+            # mas abajo en la columna anterior (caso LQBLO 2023).
+            for _column_index, (left, right) in enumerate(column_ranges):
+                for line_number, word_row in enumerate(word_rows, start=1):
                     segment = words_to_text([word for word in word_row if left <= float(word["x0"]) < right])
                     if not segment:
                         continue
@@ -1767,13 +1772,12 @@ def parse_hytek_multicolumn_pdf(pdf_path: Path, column_ranges: Optional[List[Tup
 
                     event = parse_event_header(line)
                     if event is not None:
-                        current_events[column_index] = event
-                        last_relay_team_names[column_index] = None
-                        relay_leg_orders[column_index] = 1
+                        current_event = event
+                        last_relay_team_name = None
+                        relay_leg_order = 1
                         stats.event_headers_found += 1
                         continue
 
-                    current_event = current_events[column_index]
                     if current_event is None:
                         stats.lines_skipped += 1
                         continue
@@ -1782,8 +1786,8 @@ def parse_hytek_multicolumn_pdf(pdf_path: Path, column_ranges: Optional[List[Tup
                         relay_team = parse_relay_team_line(line, current_event, page_index, line_number)
                         if relay_team is not None:
                             relay_team_rows.append(relay_team)
-                            last_relay_team_names[column_index] = relay_team.relay_team_name
-                            relay_leg_orders[column_index] = 1
+                            last_relay_team_name = relay_team.relay_team_name
+                            relay_leg_order = 1
                             stats.relay_team_rows_found += 1
                             continue
 
@@ -1792,12 +1796,12 @@ def parse_hytek_multicolumn_pdf(pdf_path: Path, column_ranges: Optional[List[Tup
                             current_event,
                             page_index,
                             line_number,
-                            last_relay_team_names[column_index],
+                            last_relay_team_name,
                             competition_year,
                         )
                         if relay_swimmers:
                             relay_swimmer_rows.extend(relay_swimmers)
-                            relay_leg_orders[column_index] = max(row.leg_order for row in relay_swimmers) + 1
+                            relay_leg_order = max(row.leg_order for row in relay_swimmers) + 1
                             stats.relay_swimmer_rows_found += len(relay_swimmers)
                             continue
                         relay_swimmers = parse_relay_swimmer_continuation_line(
@@ -1805,13 +1809,13 @@ def parse_hytek_multicolumn_pdf(pdf_path: Path, column_ranges: Optional[List[Tup
                             current_event,
                             page_index,
                             line_number,
-                            last_relay_team_names[column_index],
+                            last_relay_team_name,
                             competition_year,
-                            relay_leg_orders[column_index],
+                            relay_leg_order,
                         )
                         if relay_swimmers:
                             relay_swimmer_rows.extend(relay_swimmers)
-                            relay_leg_orders[column_index] += len(relay_swimmers)
+                            relay_leg_order += len(relay_swimmers)
                             stats.relay_swimmer_rows_found += len(relay_swimmers)
                             continue
                     else:

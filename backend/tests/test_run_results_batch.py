@@ -162,6 +162,33 @@ def test_validate_input_dir_requires_review_for_implausibly_short_seed_time():
     assert "result_time_like_points" not in issue_keys
 
 
+def test_validate_input_dir_requires_review_for_event_age_and_gender_mismatch():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_event_consistency_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "athlete.csv").write_text(
+            "full_name,gender,club_name,birth_year,source_id\n"
+            '"Saldias, Alfredo",male,MSBDO,1989,1\n'
+            '"Hernandez, Salvador",male,Team Pili Caviedes,1991,1\n',
+            encoding="utf-8",
+        )
+        (input_dir / "result.csv").write_text(
+            "event_name,athlete_name,club_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,age_at_event,birth_year_estimated,points,status,source_id\n"
+            '"men 55-59 100 SC Meter individual_medley","Saldias, Alfredo",MSBDO,14,,,"35,84",35840,34,1989,,valid,1\n'
+            '"women 30-34 100 LC Meter freestyle","Hernandez, Salvador",Team Pili Caviedes,5,"1:17,00",77000,"1:19,32",79320,34,1991,,valid,1\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    issue_keys = {issue.issue_key for issue in result.issues}
+    assert result.state == "requires_review"
+    assert "result_event_age_mismatch" in issue_keys
+    assert "result_event_gender_mismatch" in issue_keys
+
+
 def test_validate_input_dir_requires_review_for_impossible_points():
     input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_points_quality_{uuid.uuid4().hex}"
     try:

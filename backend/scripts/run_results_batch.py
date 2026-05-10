@@ -43,6 +43,7 @@ STATUSES = {"valid", "dns", "dnf", "dsq", "scratch", "unknown"}
 VOWEL_PLUS_ACCENTED_VOWEL_RE = re.compile(r"[aeiouAEIOUáéíóúüÁÉÍÓÚÜ][áéíóúüÁÉÍÓÚÜ]")
 SPLIT_ENYE_RE = re.compile(r"(?:ñ\s+ñ|n\s+ñ|ñ\s+n)", re.IGNORECASE)
 EVENT_DISTANCE_RE = re.compile(r"\b(\d+)(?:x\d+)?\s+(?:LC|SC)\s+Meter\b", re.IGNORECASE)
+EVENT_AGE_GROUP_RE = re.compile(r"\b(?:women|men)\s+(\d{1,3})-(\d{1,3})\b", re.IGNORECASE)
 
 DEFAULT_DEBUG_THRESHOLD = 0.20
 DEFAULT_REQUIRED_COMPETITION_SCOPE = "fchmn_local"
@@ -425,6 +426,75 @@ def event_distance_meters(event_name: str | None) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def event_age_group_range(event_name: str | None) -> tuple[int, int] | None:
+    match = EVENT_AGE_GROUP_RE.search(event_name or "")
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def event_gender_from_name(event_name: str | None) -> str | None:
+    normalized = (event_name or "").strip().lower()
+    if normalized.startswith("women "):
+        return "female"
+    if normalized.startswith("men "):
+        return "male"
+    return None
+
+
+def athlete_identity_key(name: str | None, club_name: str | None, birth_year: str | None) -> tuple[str, str, str]:
+    return ((name or "").strip().lower(), (club_name or "").strip().lower(), (birth_year or "").strip())
+
+
+def validate_result_event_consistency(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+    result_rows = data.get("result", [])
+    if not result_rows:
+        return
+
+    athlete_gender_by_key = {
+        athlete_identity_key(row.get("full_name"), row.get("club_name"), row.get("birth_year")): (row.get("gender") or "").strip()
+        for row in data.get("athlete", [])
+    }
+    age_mismatches = 0
+    gender_mismatches = 0
+    for row in result_rows:
+        event_name = row.get("event_name")
+        event_range = event_age_group_range(event_name)
+        age = parse_int_or_none(row.get("age_at_event"))
+        if event_range is not None and age is not None:
+            min_age, max_age = event_range
+            if age < min_age or age > max_age:
+                age_mismatches += 1
+
+        expected_gender = event_gender_from_name(event_name)
+        if expected_gender is None:
+            continue
+        athlete_gender = athlete_gender_by_key.get(
+            athlete_identity_key(row.get("athlete_name"), row.get("club_name"), row.get("birth_year_estimated"))
+        )
+        if athlete_gender and athlete_gender != expected_gender:
+            gender_mismatches += 1
+
+    if age_mismatches:
+        issues.append(
+            BatchIssue(
+                "error",
+                "result_event_age_mismatch",
+                "result.csv tiene filas cuya age_at_event no calza con el rango etario del evento.",
+                age_mismatches,
+            )
+        )
+    if gender_mismatches:
+        issues.append(
+            BatchIssue(
+                "error",
+                "result_event_gender_mismatch",
+                "result.csv tiene filas cuyo atleta no calza con el genero del evento.",
+                gender_mismatches,
+            )
+        )
+
+
 def validate_result_time_quality(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
     for table_key in ["result", "relay_team"]:
         rows = data.get(table_key, [])
@@ -608,6 +678,7 @@ def validate_input_dir(input_dir: Path, debug_threshold: float = DEFAULT_DEBUG_T
     validate_required_identities(data, issues)
     validate_athlete_name_quality(data, issues)
     validate_result_time_quality(data, issues)
+    validate_result_event_consistency(data, issues)
     validate_points_quality(data, issues)
     validate_relay_duplicate_quality(data, issues)
     validate_debug_ratio(input_dir, parsed_result_rows, debug_threshold, counts, issues)

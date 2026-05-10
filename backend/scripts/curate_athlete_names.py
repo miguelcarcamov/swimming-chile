@@ -113,6 +113,18 @@ def parse_args() -> argparse.Namespace:
         help="Optional reviewed club-locked name corrections CSV with old_full_name, new_full_name, birth_year, club_key and gender.",
     )
     parser.add_argument(
+        "--result-exclusions-csv",
+        action="append",
+        default=[],
+        help="Optional reviewed result exclusions CSV with source_url, event_name, athlete_name, club_name and birth_year.",
+    )
+    parser.add_argument(
+        "--result-event-corrections-csv",
+        action="append",
+        default=[],
+        help="Optional reviewed result event corrections CSV with source_url, old_event_name, new_event_name, athlete_name, club_name and birth_year.",
+    )
+    parser.add_argument(
         "--fuzzy-identity-decisions-csv",
         action="append",
         default=[],
@@ -543,6 +555,60 @@ def load_name_corrections(path: Path) -> List[dict]:
     return rows
 
 
+def load_result_exclusions(path: Path) -> List[dict]:
+    rows: List[dict] = []
+    if not path.exists():
+        raise FileNotFoundError(path)
+    for row in read_dict_rows(path):
+        decision = normalize_match_text(row.get("decision")) or "exclude"
+        if decision not in {"exclude", "drop"}:
+            continue
+        source_url = clean_extracted_text(row.get("source_url")) or ""
+        event_name = clean_extracted_text(row.get("event_name")) or ""
+        athlete_name = clean_extracted_text(row.get("athlete_name")) or ""
+        club_name = clean_extracted_text(row.get("club_name")) or ""
+        birth_year = normalize_birth_year(row.get("birth_year") or row.get("birth_year_estimated"))
+        if source_url and event_name and athlete_name and club_name and birth_year:
+            rows.append(
+                {
+                    "source_url": source_url,
+                    "event_key": ordered_name_key(event_name),
+                    "athlete_key": ordered_name_key(athlete_name),
+                    "club_key": normalize_match_text(club_name) or "",
+                    "birth_year": birth_year,
+                }
+            )
+    return rows
+
+
+def load_result_event_corrections(path: Path) -> List[dict]:
+    rows: List[dict] = []
+    if not path.exists():
+        raise FileNotFoundError(path)
+    for row in read_dict_rows(path):
+        decision = normalize_match_text(row.get("decision")) or "correct"
+        if decision not in {"correct", "move", "reclassify"}:
+            continue
+        source_url = clean_extracted_text(row.get("source_url")) or ""
+        old_event_name = clean_extracted_text(row.get("old_event_name") or row.get("event_name")) or ""
+        new_event_name = clean_extracted_text(row.get("new_event_name")) or ""
+        athlete_name = clean_extracted_text(row.get("athlete_name")) or ""
+        club_name = clean_extracted_text(row.get("club_name")) or ""
+        birth_year = normalize_birth_year(row.get("birth_year") or row.get("birth_year_estimated"))
+        if source_url and old_event_name and new_event_name and athlete_name and club_name and birth_year:
+            rows.append(
+                {
+                    "source_url": source_url,
+                    "old_event_key": ordered_name_key(old_event_name),
+                    "new_event_name": new_event_name,
+                    "athlete_key": ordered_name_key(athlete_name),
+                    "club_key": normalize_match_text(club_name) or "",
+                    "birth_year": birth_year,
+                }
+            )
+    return rows
+
+
 def load_fuzzy_identity_decisions(path: Path) -> List[dict]:
     rows: List[dict] = []
     if not path.exists():
@@ -807,10 +873,18 @@ def load_materialization_rules(
     name_correction_rules = []
     for name_corrections_csv in getattr(args, "name_corrections_csv", []):
         name_correction_rules.extend(load_name_corrections(resolve_path(name_corrections_csv)))
+    result_exclusion_rules = []
+    for result_exclusions_csv in getattr(args, "result_exclusions_csv", []):
+        result_exclusion_rules.extend(load_result_exclusions(resolve_path(result_exclusions_csv)))
+    result_event_correction_rules = []
+    for result_event_corrections_csv in getattr(args, "result_event_corrections_csv", []):
+        result_event_correction_rules.extend(load_result_event_corrections(resolve_path(result_event_corrections_csv)))
     comma_order_rules = build_comma_order_rules(name_rows or [])
     return {
         "ocr_name_rules": ocr_name_rules,
         "name_correction_rules": name_correction_rules,
+        "result_exclusion_rules": result_exclusion_rules,
+        "result_event_correction_rules": result_event_correction_rules,
         "birth_year_rules": birth_year_rules,
         "missing_birth_year_rules": missing_rules,
         "partial_name_rules": partial_rules,
@@ -1070,6 +1144,61 @@ def is_implausibly_short_distance_result(row: object) -> bool:
     return distance is not None and distance >= 200 and result_time_ms is not None and result_time_ms < 90000
 
 
+def result_exclusion_rule_matches(rule: dict, row: object, source_url: str) -> bool:
+    if rule["source_url"] != source_url:
+        return False
+    return (
+        rule["event_key"] == ordered_name_key(row.get("event_name"))
+        and rule["athlete_key"] == ordered_name_key(row.get("athlete_name"))
+        and rule["club_key"] == (normalize_match_text(row.get("club_name")) or "")
+        and rule["birth_year"] == normalize_birth_year(row.get("birth_year_estimated"))
+    )
+
+
+def drop_result_rows_with_reviewed_exclusions(result_df, source_url: str, rules: dict) -> Tuple[object, int]:
+    exclusion_rules = rules.get("result_exclusion_rules", [])
+    if result_df.empty or not exclusion_rules:
+        return result_df, 0
+
+    keep_indexes = []
+    dropped = 0
+    for index, row in result_df.iterrows():
+        if any(result_exclusion_rule_matches(rule, row, source_url) for rule in exclusion_rules):
+            dropped += 1
+            continue
+        keep_indexes.append(index)
+    if dropped == 0:
+        return result_df, 0
+    return result_df.loc[keep_indexes].reset_index(drop=True), dropped
+
+
+def result_event_correction_rule_matches(rule: dict, row: object, source_url: str) -> bool:
+    if rule["source_url"] != source_url:
+        return False
+    return (
+        rule["old_event_key"] == ordered_name_key(row.get("event_name"))
+        and rule["athlete_key"] == ordered_name_key(row.get("athlete_name"))
+        and rule["club_key"] == (normalize_match_text(row.get("club_name")) or "")
+        and rule["birth_year"] == normalize_birth_year(row.get("birth_year_estimated"))
+    )
+
+
+def apply_result_event_corrections(result_df, source_url: str, rules: dict) -> Tuple[object, int]:
+    correction_rules = rules.get("result_event_correction_rules", [])
+    if result_df.empty or not correction_rules or "event_name" not in result_df.columns:
+        return result_df, 0
+
+    corrected_df = result_df.copy()
+    corrected = 0
+    for index, row in corrected_df.iterrows():
+        for rule in correction_rules:
+            if result_event_correction_rule_matches(rule, row, source_url):
+                corrected_df.at[index, "event_name"] = rule["new_event_name"]
+                corrected += 1
+                break
+    return corrected_df, corrected
+
+
 def result_identity_key(row: object) -> Optional[Tuple[str, str, str]]:
     key = (
         ordered_name_key(row.get("athlete_name")),
@@ -1272,7 +1401,18 @@ def materialize_document_inputs(
     if "athlete" in curated_tables and "result" in curated_tables:
         result_path, result_df = curated_tables["result"]
         athlete_path, athlete_df = curated_tables["athlete"]
-        filtered_result_df, dropped = drop_result_rows_with_athlete_gender_conflict(result_df, athlete_df)
+        source_url = clean_extracted_text(document.get("source_url")) or ""
+        filtered_result_df, corrected = apply_result_event_corrections(result_df, source_url, rules)
+        if corrected:
+            counts["result_event_correction_rows"] += corrected
+            filtered_result_df.to_csv(result_path, index=False, encoding="utf-8-sig")
+
+        filtered_result_df, dropped = drop_result_rows_with_reviewed_exclusions(filtered_result_df, source_url, rules)
+        if dropped:
+            counts["result_reviewed_exclusion_rows_dropped"] += dropped
+            filtered_result_df.to_csv(result_path, index=False, encoding="utf-8-sig")
+
+        filtered_result_df, dropped = drop_result_rows_with_athlete_gender_conflict(filtered_result_df, athlete_df)
         if dropped:
             counts["result_gender_conflict_rows_dropped"] += dropped
             filtered_result_df.to_csv(result_path, index=False, encoding="utf-8-sig")

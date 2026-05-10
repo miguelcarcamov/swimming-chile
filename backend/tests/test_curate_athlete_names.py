@@ -263,6 +263,57 @@ def test_load_name_corrections_accepts_club_locked_csv():
     ]
 
 
+def test_load_result_exclusions_accepts_reviewed_csv():
+    tmp_dir = _workspace_tmp_dir()
+    try:
+        exclusions_path = tmp_dir / "result_exclusions.csv"
+        exclusions_path.write_text(
+            "decision;source_url;event_name;athlete_name;club_name;birth_year;reason\n"
+            'exclude;https://example.test/result.pdf;"men 25-29 100 LC Meter backstroke";"Lopez Acevedo, Job";"Peñalolen Master";1997;implausible source row\n',
+            encoding="utf-8",
+        )
+
+        rules = curate.load_result_exclusions(exclusions_path)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    assert rules == [
+        {
+            "source_url": "https://example.test/result.pdf",
+            "event_key": "men 25 29 100 lc meter backstroke",
+            "athlete_key": "lopez acevedo job",
+            "club_key": "penalolen master",
+            "birth_year": "1997",
+        }
+    ]
+
+
+def test_load_result_event_corrections_accepts_reviewed_csv():
+    tmp_dir = _workspace_tmp_dir()
+    try:
+        corrections_path = tmp_dir / "result_event_corrections.csv"
+        corrections_path.write_text(
+            "decision;source_url;old_event_name;new_event_name;athlete_name;club_name;birth_year;reason\n"
+            'correct;https://example.test/lqblo.pdf;"men 55-59 100 SC Meter individual_medley";"men 30-34 50 SC Meter butterfly";"Saldias, Alfredo";MSBDO;1989;column continuation\n',
+            encoding="utf-8",
+        )
+
+        rules = curate.load_result_event_corrections(corrections_path)
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    assert rules == [
+        {
+            "source_url": "https://example.test/lqblo.pdf",
+            "old_event_key": "men 55 59 100 sc meter individual medley",
+            "new_event_name": "men 30-34 50 SC Meter butterfly",
+            "athlete_key": "saldias alfredo",
+            "club_key": "msbdo",
+            "birth_year": "1989",
+        }
+    ]
+
+
 def test_load_fuzzy_identity_decisions_accepts_headerless_semicolon_cp1252_csv():
     tmp_dir = _workspace_tmp_dir()
     try:
@@ -703,6 +754,85 @@ def test_drop_result_rows_with_athlete_gender_conflict():
         "men 40-44 50 LC Meter breaststroke",
         "women 50-54 50 LC Meter butterfly",
     ]
+
+
+def test_drop_result_rows_with_reviewed_exclusions():
+    result_df = pd.DataFrame(
+        [
+            {
+                "event_name": "men 25-29 100 LC Meter backstroke",
+                "athlete_name": "Lopez Acevedo, Job",
+                "club_name": "Peñalolen Master",
+                "birth_year_estimated": "1997",
+            },
+            {
+                "event_name": "men 25-29 100 LC Meter backstroke",
+                "athlete_name": "Other, Swimmer",
+                "club_name": "Peñalolen Master",
+                "birth_year_estimated": "1997",
+            },
+        ]
+    )
+    rules = {
+        "result_exclusion_rules": [
+            {
+                "source_url": "https://example.test/result.pdf",
+                "event_key": "men 25 29 100 lc meter backstroke",
+                "athlete_key": "lopez acevedo job",
+                "club_key": "penalolen master",
+                "birth_year": "1997",
+            }
+        ]
+    }
+
+    filtered, dropped = curate.drop_result_rows_with_reviewed_exclusions(
+        result_df,
+        "https://example.test/result.pdf",
+        rules,
+    )
+
+    assert dropped == 1
+    assert filtered["athlete_name"].tolist() == ["Other, Swimmer"]
+
+
+def test_apply_result_event_corrections_reclassifies_reviewed_rows_without_dropping():
+    result_df = pd.DataFrame(
+        [
+            {
+                "event_name": "men 55-59 100 SC Meter individual_medley",
+                "athlete_name": "Saldias, Alfredo",
+                "club_name": "MSBDO",
+                "birth_year_estimated": "1989",
+                "result_time_text": "35,84",
+            },
+            {
+                "event_name": "men 55-59 100 SC Meter individual_medley",
+                "athlete_name": "Fuenzalida, Carlos",
+                "club_name": "PTOMO",
+                "birth_year_estimated": "1966",
+                "result_time_text": "1:24,28",
+            },
+        ]
+    )
+    rules = {
+        "result_event_correction_rules": [
+            {
+                "source_url": "https://example.test/lqblo.pdf",
+                "old_event_key": "men 55 59 100 sc meter individual medley",
+                "new_event_name": "men 30-34 50 SC Meter butterfly",
+                "athlete_key": "saldias alfredo",
+                "club_key": "msbdo",
+                "birth_year": "1989",
+            }
+        ]
+    }
+
+    corrected, count = curate.apply_result_event_corrections(result_df, "https://example.test/lqblo.pdf", rules)
+
+    assert count == 1
+    assert len(corrected) == 2
+    assert corrected.loc[0, "event_name"] == "men 30-34 50 SC Meter butterfly"
+    assert corrected.loc[1, "event_name"] == "men 55-59 100 SC Meter individual_medley"
 
 
 def test_sync_athlete_rows_from_result_identities_uses_surviving_result_gender():
