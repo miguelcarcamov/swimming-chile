@@ -198,8 +198,10 @@ Estas alertas se registran, pero no bloquean por defecto:
 Scraper:
 
 - Descubre URLs.
-- Filtra por defecto PDFs cuya URL contenga `resultado` para evitar convocatorias
-  u otros documentos no cargables.
+- Incluye todos los PDFs por defecto. Si se necesita una exploracion acotada,
+  puede filtrarse con `--include-keyword`, pero ese filtro no debe usarse como
+  compuerta final porque FCHMN puede publicar resultados con typos en la URL
+  (por ejemplo `resutados`).
 - Emite manifest JSONL con `source_url`, ruta local esperada del PDF y `out_dir`.
 - Puede recorrer paginas WordPress con `--crawl-pages`, deduplicando URLs de PDF
   entre paginas y deteniendose cuando una pagina paginada devuelve 404.

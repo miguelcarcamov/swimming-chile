@@ -175,11 +175,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--default-source-id", type=int, default=1)
     parser.add_argument("--limit", type=int, default=sys.maxsize, help="Maximo de PDFs a incluir.")
     parser.add_argument("--crawl-pages", type=int, default=1, help="Cantidad maxima de paginas WordPress a recorrer desde --url.")
-    parser.add_argument("--all-pdfs", action="store_true", help="Incluye PDFs que no parezcan resultados.")
+    parser.add_argument("--all-pdfs", action="store_true", help="Compatibilidad: el discovery ya incluye todos los PDFs por defecto.")
     parser.add_argument(
         "--include-keyword",
         action="append",
-        help="Keyword requerida en la URL del PDF. Por defecto: resultado. Puede repetirse.",
+        help="Keyword requerida en la URL del PDF. Por defecto no filtra por keyword; usar solo para exploraciones acotadas.",
     )
     parser.add_argument("--timeout-seconds", type=int, default=30, help="Timeout para --url.")
     parser.add_argument("--json", action="store_true", help="Imprime resumen como JSON.")
@@ -188,7 +188,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    include_keywords = [] if args.all_pdfs else (args.include_keyword or ["resultado"])
+    include_keywords = [] if args.all_pdfs else (args.include_keyword or [])
     if args.html_file and args.crawl_pages != 1:
         raise SystemExit("[ERROR] --crawl-pages solo se puede usar con --url.")
     if args.crawl_pages < 1:

@@ -19,6 +19,9 @@ validar y cargar a core solo cuando se pida explícitamente.
 
 Este comando descubre PDFs de resultados desde la página real de resultados y
 emite un manifest JSONL local. **No descarga, no parsea y no carga.**
+Por defecto no filtra por keyword: FCHMN puede publicar resultados con typos en
+la URL (ej. `resutados`). La separacion entre resultados y convocatorias debe
+resolverse en el manifest curado, no como compuerta final del scraper.
 
 ```powershell
 backend\.venv\Scripts\python.exe backend\scripts\scrape_fchmn.py `

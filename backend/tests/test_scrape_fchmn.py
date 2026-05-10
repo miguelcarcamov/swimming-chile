@@ -33,6 +33,42 @@ def test_discover_pdf_urls_can_include_all_pdfs():
     assert "https://fchmn.cl/wp-content/uploads/2026/04/convocatoria-xiii-copa-penamaster-2026.pdf" in urls
 
 
+def test_default_discovery_does_not_depend_on_resultado_keyword(monkeypatch):
+    html_by_url = {
+        "https://fchmn.cl/resultados/": """
+        <a href="/wp-content/uploads/2025/09/resutados-vi-copa-araucania-master-2025.pdf">typo oficial</a>
+        <a href="/wp-content/uploads/2025/09/convocatoria-vi-copa-araucania-master-2025.pdf">convocatoria</a>
+        """,
+    }
+
+    monkeypatch.setattr(scraper, "read_url_html", lambda url, timeout_seconds: html_by_url[url])
+    manifest_path = BACKEND_DIR / "data" / "staging" / "csv" / "test_scraper_no_keyword_manifest.jsonl"
+    manifest_path.unlink(missing_ok=True)
+    args = [
+        "scrape_fchmn.py",
+        "--url",
+        "https://fchmn.cl/resultados/",
+        "--manifest",
+        str(manifest_path),
+        "--pdf-dir",
+        "backend/data/raw/results_pdf/fchmn",
+        "--out-dir-root",
+        "backend/data/raw/results_csv/fchmn",
+    ]
+    monkeypatch.setattr(sys, "argv", args)
+
+    try:
+        scraper.main()
+        entries = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines()]
+    finally:
+        manifest_path.unlink(missing_ok=True)
+
+    assert [entry["source_url"] for entry in entries] == [
+        "https://fchmn.cl/wp-content/uploads/2025/09/resutados-vi-copa-araucania-master-2025.pdf",
+        "https://fchmn.cl/wp-content/uploads/2025/09/convocatoria-vi-copa-araucania-master-2025.pdf",
+    ]
+
+
 def test_wordpress_page_url_builds_paginated_urls_from_home():
     assert scraper.wordpress_page_url("https://fchmn.cl/", 1) == "https://fchmn.cl/"
     assert scraper.wordpress_page_url("https://fchmn.cl/", 2) == "https://fchmn.cl/page/2/"
