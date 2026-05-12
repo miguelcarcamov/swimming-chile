@@ -9,18 +9,20 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 export const AthletesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [page, setPage] = useState(1);
 
-  // Sincronización simple de debouncing para no saturar llamadas (útil al conectar al backend real)
+  // Sincronización simple de debouncing para no saturar llamadas
   React.useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedQuery(searchTerm);
+      setPage(1); // Resetear página a 1 cada vez que se busca algo nuevo
     }, 400);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['athletes', debouncedQuery],
-    queryFn: () => athleteService.searchAthletes(debouncedQuery),
+    queryKey: ['athletes', debouncedQuery, page],
+    queryFn: () => athleteService.searchAthletes(debouncedQuery, page),
   });
 
   return (
@@ -58,39 +60,64 @@ export const AthletesPage: React.FC = () => {
               description={`No hay coincidencias para "${debouncedQuery}". Intenta con otro nombre.`} 
             />
           ) : (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              <ul className="divide-y divide-slate-200">
-                {data.data.map((athlete) => (
-                  <li key={athlete.id} className="hover:bg-slate-50 transition-colors">
-                    <Link to={`/athletes/${athlete.id}`} className="block p-4 sm:px-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <p className="text-sm font-semibold text-blue-600 truncate">{athlete.full_name}</p>
-                          <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
-                            <span className="capitalize">{athlete.gender}</span>
-                            {athlete.birth_year && (
-                              <>
-                                <span>&bull;</span>
-                                <span>Nacido en {athlete.birth_year}</span>
-                              </>
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <ul className="divide-y divide-slate-200">
+                  {data.data.map((athlete) => (
+                    <li key={athlete.id} className="hover:bg-slate-50 transition-colors">
+                      <Link to={`/athletes/${athlete.id}`} className="block p-4 sm:px-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <p className="text-sm font-semibold text-blue-600 truncate">{athlete.full_name}</p>
+                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+                              <span className="capitalize">{athlete.gender}</span>
+                              {athlete.birth_year && (
+                                <>
+                                  <span>&bull;</span>
+                                  <span>Nacido en {athlete.birth_year}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            {athlete.club_name && (
+                              <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                                {athlete.club_name}
+                              </span>
                             )}
-                          </p>
+                            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          {athlete.club_name && (
-                            <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                              {athlete.club_name}
-                            </span>
-                          )}
-                          <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Paginación */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <p className="text-sm text-slate-500">
+                  Mostrando página {data.meta.page} de {data.meta.total_pages} ({data.meta.total_results} resultados)
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={data.meta.page === 1}
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(data.meta.total_pages, p + 1))}
+                    disabled={data.meta.page >= data.meta.total_pages}
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>

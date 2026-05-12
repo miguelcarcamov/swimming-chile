@@ -7,7 +7,7 @@ export const AthleteSchema = z.object({
   full_name: z.string(),
   gender: AthleteGenderSchema,
   birth_year: z.number().int().nullable().optional(),
-  club_name: z.string().optional(),
+  club_name: z.string().nullable().optional(),
 });
 
 export type Athlete = z.infer<typeof AthleteSchema>;
@@ -20,7 +20,7 @@ export const AthleteResultSchema = z.object({
   distance_m: z.number().int(),
   course_type: CourseTypeSchema,
   competition_name: z.string(),
-  competition_date: z.string().datetime().optional(),
+  competition_date: z.string().nullable().optional(),
   result_time_text: z.string(),
   result_time_ms: z.number().int(),
   points: z.number().nullable().optional(),

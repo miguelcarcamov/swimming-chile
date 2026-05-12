@@ -1,20 +1,26 @@
-import { ClubsResponseSchema } from '../../../lib/schemas/club';
-import type { ClubsResponse } from '../../../lib/schemas/club';
-import fixtureData from '../../../test/fixtures/clubs.json';
+import { ClubsResponseSchema, ClubProfileSchema } from '../../../lib/schemas/club';
+import type { ClubsResponse, ClubProfile } from '../../../lib/schemas/club';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 export const clubService = {
-  async getClubs(): Promise<ClubsResponse> {
-    await delay(500);
-
-    const allData = fixtureData.search_results as ClubsResponse;
+  async getClubs(query: string = '', page: number = 1): Promise<ClubsResponse> {
+    const url = new URL(`${API_BASE_URL}/api/clubs`);
+    if (query) url.searchParams.append('search', query);
+    url.searchParams.append('page', page.toString());
     
-    const parsed = ClubsResponseSchema.safeParse(allData);
-    if (!parsed.success) {
-      throw new Error("Fixture data invalid: " + parsed.error.message);
-    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch clubs');
+    
+    const data = await response.json();
+    return ClubsResponseSchema.parse(data);
+  },
 
-    return parsed.data;
+  async getClubProfile(id: string): Promise<ClubProfile> {
+    const response = await fetch(`${API_BASE_URL}/api/clubs/${id}`);
+    if (!response.ok) throw new Error('Failed to fetch club profile');
+    
+    const data = await response.json();
+    return ClubProfileSchema.parse(data);
   }
 };

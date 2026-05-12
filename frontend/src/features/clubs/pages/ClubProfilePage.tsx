@@ -11,24 +11,18 @@ export const ClubProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Fetch Club details (en un escenario real habría un getClubById, por ahora buscamos en la lista)
-  const { data: clubsResponse, isLoading: loadingClub, isError: isErrorClub, refetch: refetchClubs } = useQuery({
-    queryKey: ['clubs'],
-    queryFn: () => clubService.getClubs(),
+  // Fetch Club details and athletes via the new profile endpoint
+  const { data: profile, isLoading, isError, refetch } = useQuery({
+    queryKey: ['club-profile', id],
+    queryFn: () => clubService.getClubProfile(id!),
+    enabled: !!id,
   });
 
-  const club = clubsResponse?.data.find(c => c.id === id);
+  const club = profile?.club;
+  const clubAthletes = profile?.athletes;
 
-  // Fetch Athletes for this club (mockeamos trayendo todos y filtrando)
-  const { data: athletesResponse, isLoading: loadingAthletes, isError: isErrorAthletes, refetch: refetchAthletes } = useQuery({
-    queryKey: ['athletes-by-club', id],
-    queryFn: () => athleteService.searchAthletes(''),
-  });
-
-  const clubAthletes = athletesResponse?.data.filter(a => a.club_name === club?.name);
-
-  if (loadingClub || loadingAthletes) return <LoadingState />;
-  if (isErrorClub || isErrorAthletes) return <ErrorState onRetry={() => { refetchClubs(); refetchAthletes(); }} />;
+  if (isLoading) return <LoadingState />;
+  if (isError) return <ErrorState onRetry={() => refetch()} />;
   if (!club) return <EmptyState title="Club no encontrado" />;
 
   return (

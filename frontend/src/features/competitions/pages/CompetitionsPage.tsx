@@ -7,34 +7,35 @@ import { ErrorState } from '../../../components/ui/ErrorState';
 import { EmptyState } from '../../../components/ui/EmptyState';
 
 export const CompetitionsPage: React.FC = () => {
-  const [query, setQuery] = React.useState('');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [debouncedQuery, setDebouncedQuery] = React.useState('');
   const [year, setYear] = React.useState('all');
   const [circuit, setCircuit] = React.useState('FCHMN'); // Default FCHMN
+  const [page, setPage] = React.useState(1);
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(searchTerm);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
+  // Reset página cuando cambian los selectores
+  React.useEffect(() => {
+    setPage(1);
+  }, [year, circuit]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['competitions'],
-    queryFn: () => competitionService.getCompetitions(),
+    queryKey: ['competitions', debouncedQuery, year, page],
+    queryFn: () => competitionService.getCompetitions(debouncedQuery, year, page),
   });
 
-  const filteredComps = data?.data.filter(comp => {
-    const matchQuery = comp.name.toLowerCase().includes(query.toLowerCase()) || 
-                      (comp.location && comp.location.toLowerCase().includes(query.toLowerCase()));
-    
-    const compYear = new Date(comp.date_start).getFullYear().toString();
-    const matchYear = year === 'all' || compYear === year;
-
-    // TODO: En el futuro el esquema traerá 'circuit'. Por ahora asumimos todo FCHMN en la UI local.
-    const matchCircuit = circuit === 'all' || circuit === 'FCHMN';
-
-    return matchQuery && matchYear && matchCircuit;
-  });
-
-  // Extraer años únicos para el selector
+  // Extraer años para el selector (estático, desde el actual hasta 2015)
   const availableYears = React.useMemo(() => {
-    if (!data) return [];
-    const years = data.data.map(c => new Date(c.date_start).getFullYear());
-    return Array.from(new Set(years)).sort((a, b) => b - a);
-  }, [data]);
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: currentYear - 2014 }, (_, i) => currentYear - i);
+  }, []);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -51,8 +52,8 @@ export const CompetitionsPage: React.FC = () => {
               type="text"
               className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none bg-white text-sm"
               placeholder="Buscar torneo o sede..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
             <svg className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -87,71 +88,93 @@ export const CompetitionsPage: React.FC = () => {
       {isLoading && <LoadingState />}
       {isError && <ErrorState onRetry={() => refetch()} />}
       
-      {!isLoading && !isError && filteredComps && (
+      {!isLoading && !isError && data && (
         <>
-          {filteredComps.length === 0 ? (
+          {data.data.length === 0 ? (
             <EmptyState title="No se encontraron competencias" description="Modifica los filtros para ver más resultados." />
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredComps.map((comp) => {
-                const dateObj = new Date(comp.date_start);
-                const month = dateObj.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase();
-                const day = dateObj.getDate();
-                const yearStr = dateObj.getFullYear();
-                
-                return (
-                  <Link 
-                    key={comp.id} 
-                    to={`/competitions/${comp.id}`}
-                    className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col h-full"
-                  >
-                    {/* Tarjeta Tipo Calendario */}
-                    <div className="flex bg-slate-50 border-b border-slate-100">
-                      {/* Fecha "Tear-off Calendar" */}
-                      <div className="w-20 bg-blue-600 text-white flex flex-col items-center justify-center p-3 text-center">
-                        <span className="text-xs font-bold tracking-widest">{month}</span>
-                        <span className="text-2xl font-black leading-none my-1">{day}</span>
-                        <span className="text-xs opacity-80">{yearStr}</span>
-                      </div>
-                      
-                      <div className="p-4 flex-1 flex flex-col justify-center">
-                        <h3 className="text-lg font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">
-                          {comp.name}
-                        </h3>
-                      </div>
-                    </div>
-
-                    <div className="p-5 flex-1 flex flex-col justify-between">
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-start gap-2 text-slate-600 text-sm">
-                          <svg className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          <span>{comp.location || 'Sede por confirmar'}</span>
+            <div className="space-y-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {data.data.map((comp) => {
+                  const dateObj = new Date(comp.date_start);
+                  const month = dateObj.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase();
+                  const day = dateObj.getDate();
+                  const yearStr = dateObj.getFullYear();
+                  
+                  return (
+                    <Link 
+                      key={comp.id} 
+                      to={`/competitions/${comp.id}`}
+                      className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col h-full"
+                    >
+                      <div className="flex bg-slate-50 border-b border-slate-100">
+                        <div className="w-20 bg-blue-600 text-white flex flex-col items-center justify-center p-3 text-center">
+                          <span className="text-xs font-bold tracking-widest">{month}</span>
+                          <span className="text-2xl font-black leading-none my-1">{day}</span>
+                          <span className="text-xs opacity-80">{yearStr}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-slate-600 text-sm">
-                          <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          <span>
-                            Piscina {comp.course_type === 'scm' ? 'Corta (25m)' : 'Larga (50m)'}
+                        <div className="p-4 flex-1 flex flex-col justify-center">
+                          <h3 className="text-lg font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">
+                            {comp.name}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="p-5 flex-1 flex flex-col justify-between">
+                        <div className="space-y-3 mb-6">
+                          <div className="flex items-start gap-2 text-slate-600 text-sm">
+                            <svg className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>{comp.location || 'Sede por confirmar'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-600 text-sm">
+                            <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>
+                              Piscina {comp.course_type === 'scm' ? 'Corta (25m)' : 'Larga (50m)'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end mt-auto pt-4 border-t border-slate-100">
+                          <span className="text-blue-600 text-sm font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                            Ver Resultados
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                           </span>
                         </div>
                       </div>
+                    </Link>
+                  );
+                })}
+              </div>
 
-                      <div className="flex justify-end mt-auto pt-4 border-t border-slate-100">
-                        <span className="text-blue-600 text-sm font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                          Ver Resultados
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+              {/* Paginación */}
+              <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                <p className="text-sm text-slate-500">
+                  Mostrando página {data.meta.page} de {data.meta.total_pages} ({data.meta.total_results} resultados)
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={data.meta.page === 1}
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(data.meta.total_pages, p + 1))}
+                    disabled={data.meta.page >= data.meta.total_pages}
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>
