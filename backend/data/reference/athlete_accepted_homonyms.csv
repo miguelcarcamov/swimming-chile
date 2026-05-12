@@ -1,0 +1,2 @@
+full_name,gender,birth_year,decision,reason
+"Torres, Sergio",male,1994,keep_separate,"Homonimos confirmados manualmente; no deben volver a tratarse como duplicado pendiente."

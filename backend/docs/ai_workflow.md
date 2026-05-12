@@ -93,9 +93,10 @@ Si la conversación retoma una carga o recarga, sigue backend/docs/pre_load_chec
   lectura de columnas, corregir/reclasificar el evento en la materializacion
   pre-load y dejar evidencia auditable.
 - La materialización vigente para FCHMN local 2022-2026 es
-  `backend/data/raw/manifests/fchmn_historical_2022_2026_frozen_local_curated_20260501.jsonl`.
-  Incluye decisiones manuales fuzzy con `decision=merge`, overrides de LQBLO
-  2023 y Copa Cordillera 2025, y valida 61/61 sin `--load`.
+  `backend/data/raw/manifests/fchmn_historical_2022_2026_frozen_local_parser020_tracefixed_curated_20260512_identity_fix.jsonl`.
+  Usa parser `0.1.20`, incluye 62 documentos, decisiones manuales fuzzy con
+  `decision=merge`, exclusiones revisadas, homónimos aceptados versionados y
+  valida 62/62 sin `--load`.
 - Antes de cerrar una nueva recarga, generar y revisar la bandeja ampliada de
   identidad con `audit_expected_athlete_identity.py --expanded-identity-candidates-csv`.
   Esta bandeja cubre segundo apellido/segundo nombre omitido e indicios de

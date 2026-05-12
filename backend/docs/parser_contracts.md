@@ -30,6 +30,10 @@ Este documento fija los contratos minimos de entrada y salida del parser antes d
   integrantes sin marcadores `1)`/`2)`, cuando aparecen como continuacion
   posicional del equipo en la misma columna, por ejemplo
   `Perez, Romulo M31 Correa, Carolina W31`.
+- Desde parser `0.1.20`, el lector HY-TEK multicolumna procesa cada pagina por
+  columna logica completa antes de pasar a la siguiente columna. Esto evita que
+  una linea de una columna derecha quede asociada accidentalmente al evento de
+  otra columna, como ocurria en LQBLO 2023.
 
 ## Salidas operativas
 

@@ -15,6 +15,44 @@ validar y cargar a core solo cuando se pida explícitamente.
 
 ---
 
+## Estado post-load vigente: 2026-05-12
+
+Auditoría realizada sobre la carga core generada desde el manifest curado
+`backend/data/raw/manifests/fchmn_historical_2022_2026_frozen_local_parser020_tracefixed_curated_20260512_identity_fix.jsonl`.
+El parser vigente de esa materialización es `0.1.20`.
+
+Evidencia local no versionada:
+
+- `backend/data/raw/batch_summaries/fchmn_core_postload_tracefixed_curated_20260512_identity_fix_audit_20260512_summary.json`
+- `backend/data/raw/batch_summaries/fchmn_core_postload_tracefixed_curated_20260512_identity_fix_audit_20260512_*.csv`
+
+Resultado operativo:
+
+- 62 documentos esperados y 62 `load_run` completados.
+- 0 documentos faltantes en core.
+- 0 diferencias de checksum.
+- 0 `validation_issue`.
+- 0 atletas huérfanos.
+- 0 inconsistencias de evento contra género/edad.
+- 0 tiempos individuales sospechosos.
+- 0 tiempos de relevo sospechosos.
+
+Excepciones conocidas:
+
+- El único duplicado exacto detectado en `core.athlete` es `Torres, Sergio`
+  (`male`, `birth_year=1994`). Es un homónimo confirmado y debe mantenerse
+  separado. La decisión queda versionada en
+  `backend/data/reference/athlete_accepted_homonyms.csv`.
+- Persisten relevos con 0, 2 o 3 integrantes cuando la fuente oficial no trae
+  la nómina completa o el formato no permite reconstruirla con seguridad.
+  Estos casos se auditan, pero no bloquean la carga si el resultado del relevo
+  es oficial.
+- Persisten diferencias entre puntos de fuente y puntos calculados por regla
+  esperada. La política vigente es conservar los puntos publicados por la
+  fuente y exponer la diferencia como auditoría, no sobrescribirla.
+
+---
+
 ## 1. Discovery desde página de resultados FCHMN
 
 Este comando descubre PDFs de resultados desde la página real de resultados y
@@ -130,15 +168,20 @@ Esta etapa no modifica el parser ni carga a core. Sirve para consolidar
 variantes tipo `Goámez/Goémez -> Gomez` antes de una recarga. La semejanza nominal no se
 usa sola: requiere mismo `birth_year`, mismo `club_key` y mismo género.
 
-La materialización vigente 20260501 agrega decisiones manuales de identidad
-fuzzy revisadas desde
-`backend/data/raw/batch_summaries/fchmn_core_athlete_fuzzy_identity_candidates_20260501_revas.csv`.
-Solo se aplican filas con `decision=merge`; las filas en blanco quedan como
-pendientes. El manifest resultante es
-`backend/data/raw/manifests/fchmn_historical_2022_2026_frozen_local_curated_20260501.jsonl`
-y valida 61/61 sin `--load`.
+La materialización vigente 20260512 agrega decisiones manuales de identidad
+fuzzy revisadas, exclusiones de resultados revisadas y homónimos aceptados
+versionados. Solo se aplican filas con `decision=merge`; las filas en blanco o
+marcadas como mantener separadas no se fusionan. El manifest resultante es
+`backend/data/raw/manifests/fchmn_historical_2022_2026_frozen_local_parser020_tracefixed_curated_20260512_identity_fix.jsonl`
+y valida 62/62 sin `--load`.
 
-La siguiente iteración de identidad debe incluir la bandeja ampliada:
+Decisiones de referencia versionadas:
+
+- `backend/data/reference/athlete_accepted_homonyms.csv`: homónimos confirmados
+  que no deben reabrirse como duplicados pendientes.
+
+Si una nueva carga muestra candidatos de identidad, la siguiente iteración debe
+incluir una bandeja ampliada:
 
 ```powershell
 backend\.venv\Scripts\python.exe backend\scripts\audit_expected_athlete_identity.py `
