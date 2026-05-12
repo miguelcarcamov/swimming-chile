@@ -235,6 +235,7 @@ CREATE TABLE result (
     seed_time_text TEXT,
     seed_time_ms BIGINT CHECK (seed_time_ms IS NULL OR seed_time_ms >= 0),
     points NUMERIC(10,2),
+    expected_points NUMERIC(10,2),
     age_at_event INTEGER CHECK (age_at_event IS NULL OR age_at_event > 0),
     birth_year_estimated INTEGER CHECK (birth_year_estimated IS NULL OR birth_year_estimated >= 1900),
     record_flag TEXT,
@@ -263,6 +264,7 @@ CREATE TABLE relay_result (
     seed_time_text TEXT,
     seed_time_ms BIGINT CHECK (seed_time_ms IS NULL OR seed_time_ms >= 0),
     points NUMERIC(10,2),
+    expected_points NUMERIC(10,2),
     reaction_time NUMERIC(6,3) CHECK (reaction_time IS NULL OR reaction_time >= 0),
     record_flag TEXT,
     status TEXT CHECK (

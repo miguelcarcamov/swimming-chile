@@ -5,6 +5,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 SCHEMA_SQL = BACKEND_DIR / "sql" / "schema.sql"
 MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "001_traceability_idempotency.sql"
 COMPETITION_SCOPE_MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "002_competition_scope.sql"
+EXPECTED_POINTS_MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "003_expected_points.sql"
 
 
 def normalized_sql(path: Path) -> str:
@@ -38,6 +39,13 @@ def test_schema_declares_competition_scope():
     assert "create index idx_competition_scope on competition(competition_scope)" in sql
 
 
+def test_schema_declares_expected_points_columns():
+    sql = normalized_sql(SCHEMA_SQL)
+
+    assert "create table result" in sql
+    assert sql.count("expected_points numeric(10,2)") >= 2
+
+
 def test_migration_keeps_phase_2_tables_and_unique_indexes():
     sql = normalized_sql(MIGRATION_SQL)
 
@@ -59,5 +67,17 @@ def test_competition_scope_migration_adds_column_constraint_and_index():
         "alter table competition add column if not exists competition_scope text",
         "add constraint chk_competition_scope check",
         "create index if not exists idx_competition_scope on competition(competition_scope)",
+    ]:
+        assert sql_fragment in sql
+
+
+def test_expected_points_migration_adds_result_and_relay_columns():
+    sql = normalized_sql(EXPECTED_POINTS_MIGRATION_SQL)
+
+    for sql_fragment in [
+        "alter table result add column if not exists expected_points numeric(10,2)",
+        "alter table relay_result add column if not exists expected_points numeric(10,2)",
+        "update result set expected_points = case rank_position",
+        "update relay_result set expected_points = case rank_position",
     ]:
         assert sql_fragment in sql

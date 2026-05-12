@@ -67,6 +67,29 @@ STAGING_TABLES = {
 DEFAULT_CLUB_ALIAS_CSV = Path(__file__).resolve().parents[1] / "data" / "reference" / "club_alias.csv"
 
 
+def expected_points_case_sql(rank_expression: str, *, relay: bool) -> str:
+    """Return FCHMN expected scoring by rank; source points remain untouched."""
+    multiplier = 2 if relay else 1
+    points_by_place = {
+        1: 9 * multiplier,
+        2: 7 * multiplier,
+        3: 6 * multiplier,
+        4: 5 * multiplier,
+        5: 4 * multiplier,
+        6: 3 * multiplier,
+        7: 2 * multiplier,
+        8: 1 * multiplier,
+    }
+    branches = "\n".join(
+        f"                   WHEN {place} THEN {points:.2f}"
+        for place, points in points_by_place.items()
+    )
+    return f"""CASE {rank_expression}
+{branches}
+                   ELSE NULL
+               END::NUMERIC(10,2)"""
+
+
 @dataclass
 class Config:
     host: str
@@ -1098,12 +1121,13 @@ def insert_core_athlete(cur, schema: str, default_source_id: int) -> None:
 
 
 def insert_core_result(cur, schema: str, competition_id: int, default_source_id: int) -> None:
+    expected_points_sql = expected_points_case_sql("NULLIF(TRIM(r.rank_position), '')::INTEGER", relay=False)
     cur.execute(f"""
         INSERT INTO {fqtn(schema, 'result')} (
             event_id, athlete_id, club_id, rank_position,
             seed_time_text, seed_time_ms,
             result_time_text, result_time_ms,
-            age_at_event, birth_year_estimated, points,
+            age_at_event, birth_year_estimated, points, expected_points,
             status, source_id
         )
         SELECT e.id, a.id, c.id,
@@ -1115,6 +1139,7 @@ def insert_core_result(cur, schema: str, competition_id: int, default_source_id:
                NULLIF(TRIM(r.age_at_event), '')::INTEGER,
                NULLIF(TRIM(r.birth_year_estimated), '')::INTEGER,
                NULLIF(TRIM(r.points), '')::NUMERIC(10,2),
+               {expected_points_sql},
                LOWER(NULLIF(TRIM(r.status), '')),
                COALESCE(NULLIF(TRIM(r.source_id), '')::BIGINT, %s)
         FROM {fqtn(schema, 'stg_result')} r
@@ -1158,12 +1183,13 @@ def insert_core_result(cur, schema: str, competition_id: int, default_source_id:
 
 
 def insert_core_relay_result(cur, schema: str, competition_id: int, default_source_id: int) -> None:
+    expected_points_sql = expected_points_case_sql("NULLIF(TRIM(r.rank_position), '')::INTEGER", relay=True)
     cur.execute(f"""
         INSERT INTO {fqtn(schema, 'relay_result')} (
             event_id, club_id, relay_team_name, lane, heat_number, rank_position,
             seed_time_text, seed_time_ms,
             result_time_text, result_time_ms,
-            points, reaction_time, record_flag, status, source_id, source_url
+            points, expected_points, reaction_time, record_flag, status, source_id, source_url
         )
         SELECT e.id, c.id, TRIM(r.relay_team_name),
                NULLIF(TRIM(r.lane), '')::INTEGER,
@@ -1174,6 +1200,7 @@ def insert_core_relay_result(cur, schema: str, competition_id: int, default_sour
                NULLIF(TRIM(r.result_time_text), ''),
                NULLIF(TRIM(r.result_time_ms), '')::BIGINT,
                NULLIF(TRIM(r.points), '')::NUMERIC(10,2),
+               {expected_points_sql},
                NULLIF(TRIM(r.reaction_time), '')::NUMERIC(6,3),
                NULLIF(TRIM(r.record_flag), ''),
                LOWER(NULLIF(TRIM(r.status), '')),

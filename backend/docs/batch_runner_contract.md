@@ -168,6 +168,9 @@ Bloquean la carga y dejan el lote en `requires_review`:
 - `points` aparece en filas sin `rank_position`, o supera el maximo de puntaje
   esperable por fila: 9 en individuales y 18 en relevos. Esto captura tiempos
   post-DQ o marcas de exhibicion que el parser no debe tratar como puntaje.
+- `expected_points` no viene desde el parser: lo calcula el loader al insertar
+  en core usando `rank_position`. Individuales usan 9/7/6/5/4/3/2/1 y relevos
+  el doble. Este valor permite auditar la fuente sin modificar `points`.
 - `relay_team.csv` o `relay_swimmer.csv` traen filas duplicadas exactas de
   relevos. Esto bloquea la carga porque puede producir equipos con integrantes
   repetidos en `core.relay_result_member`.

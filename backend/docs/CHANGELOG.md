@@ -63,8 +63,9 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
   `backend/data/reference/athlete_accepted_homonyms.csv`.
 - Las diferencias de puntos frente a la regla esperada y los relevos con nomina
   incompleta quedan como auditorias de fuente/formato: se conservan los puntos
-  oficiales publicados y no se inventan integrantes de relevo cuando la fuente
-  no los permite reconstruir con seguridad.
+  oficiales publicados en `points`, se agrega `expected_points` como calculo
+  auditable, y no se inventan integrantes de relevo cuando la fuente no los
+  permite reconstruir con seguridad.
 
 ### Parser Updates
 - **0.1.12**: Soporte para layout brasileño "Swim It Up" (ej. Sudamericano Recife).

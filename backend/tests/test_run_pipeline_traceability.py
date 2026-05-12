@@ -221,3 +221,33 @@ def test_result_and_relay_member_match_athletes_by_normalized_key():
     assert "TRANSLATE(LOWER(TRIM(at.full_name))" in joined_sql
     assert "TRANSLATE(LOWER(TRIM(r.athlete_name))" in joined_sql
     assert "TRANSLATE(LOWER(TRIM(m.athlete_name))" in joined_sql
+
+
+def test_expected_points_case_uses_fchmn_scoring_rules():
+    individual_sql = pipeline.expected_points_case_sql("rank_position", relay=False)
+    relay_sql = pipeline.expected_points_case_sql("rank_position", relay=True)
+
+    assert "WHEN 1 THEN 9.00" in individual_sql
+    assert "WHEN 8 THEN 1.00" in individual_sql
+    assert "WHEN 1 THEN 18.00" in relay_sql
+    assert "WHEN 8 THEN 2.00" in relay_sql
+
+
+def test_result_and_relay_insert_populate_expected_points():
+    class Cursor:
+        def __init__(self):
+            self.statements = []
+
+        def execute(self, statement, params=None):
+            self.statements.append((statement, params))
+
+    cursor = Cursor()
+
+    pipeline.insert_core_result(cursor, "core", 1, 1)
+    pipeline.insert_core_relay_result(cursor, "core", 1, 1)
+
+    joined_sql = "\n".join(statement for statement, _ in cursor.statements)
+
+    assert "points, expected_points," in joined_sql
+    assert "WHEN 1 THEN 9.00" in joined_sql
+    assert "WHEN 1 THEN 18.00" in joined_sql

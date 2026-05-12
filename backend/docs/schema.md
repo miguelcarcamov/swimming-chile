@@ -18,7 +18,8 @@ Actualmente el proyecto soporta:
 - tiempos finales (`result_time_text`, `result_time_ms`)
 - edad contextual del resultado (`age_at_event`)
 - estimacion de año de nacimiento (`birth_year_estimated`)
-- puntos cuando existen en el PDF
+- puntos oficiales cuando existen en el PDF (`points`)
+- puntaje esperado calculado por posicion (`expected_points`) para auditoria
 - carga end-to-end a PostgreSQL para individuales y relevos
 
 El pipeline carga:
@@ -343,6 +344,7 @@ Campos principales:
 - `seed_time_text`
 - `seed_time_ms`
 - `points`
+- `expected_points`
 - `age_at_event`
 - `birth_year_estimated`
 - `record_flag`
@@ -374,6 +376,7 @@ Campos principales:
 - `seed_time_text`
 - `seed_time_ms`
 - `points`
+- `expected_points`
 - `reaction_time`
 - `record_flag`
 - `status`
@@ -651,6 +654,15 @@ mantiene cruces normalizados.
 - `athlete.birth_year`: atributo del atleta cuando se conoce o se infiere de forma consistente.
 - `result.birth_year_estimated`: estimacion contextual del resultado.
 - `relay_result_member.birth_year_estimated`: estimacion contextual del integrante en ese relevo.
+
+### 11.5 Semantica de puntos
+
+- `points`: puntaje oficial publicado por la fuente. No se sobrescribe aunque no
+  coincida con la regla esperada.
+- `expected_points`: puntaje calculado desde `rank_position` para auditoria. En
+  pruebas individuales usa 9, 7, 6, 5, 4, 3, 2, 1 para puestos 1 a 8. En
+  relevos usa el doble: 18, 14, 12, 10, 8, 6, 4, 2.
+- Si no hay `rank_position` entre 1 y 8, `expected_points` queda `NULL`.
 
 ## 12. Propuestas de proximos cambios
 

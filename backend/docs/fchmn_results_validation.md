@@ -48,8 +48,8 @@ Excepciones conocidas:
   Estos casos se auditan, pero no bloquean la carga si el resultado del relevo
   es oficial.
 - Persisten diferencias entre puntos de fuente y puntos calculados por regla
-  esperada. La política vigente es conservar los puntos publicados por la
-  fuente y exponer la diferencia como auditoría, no sobrescribirla.
+  esperada. La política vigente es conservar los puntos publicados en `points`
+  y exponer la regla esperada en `expected_points`, no sobrescribir la fuente.
 
 ---
 
