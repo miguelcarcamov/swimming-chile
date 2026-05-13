@@ -66,6 +66,10 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
   oficiales publicados en `points`, se agrega `expected_points` como calculo
   auditable, y no se inventan integrantes de relevo cuando la fuente no los
   permite reconstruir con seguridad.
+- Para producto/API, el club vigente del atleta se deriva con la vista
+  `core.athlete_current_club` desde la ultima observacion competitiva en
+  individuales o relevos. `core.athlete.club_id` se mantiene como ayuda
+  operativa de carga/cruce y no debe usarse como verdad de club vigente.
 
 ### Parser Updates
 - **0.1.12**: Soporte para layout brasileño "Swim It Up" (ej. Sudamericano Recife).

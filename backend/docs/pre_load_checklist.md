@@ -27,6 +27,9 @@ del batch runner: solo ordena las decisiones humanas antes de ejecutar `--load`.
   `backend/sql/migrations/003_expected_points.sql`, para persistir
   `expected_points` en `result` y `relay_result` antes de una recarga con el
   loader vigente. La migracion tambien recalcula filas existentes.
+- Confirmar que la base tiene aplicada la migracion
+  `backend/sql/migrations/004_athlete_current_club_view.sql`, para exponer
+  `core.athlete_current_club` antes de usar la API/frontend de club vigente.
 
 ## 2. Manifest congelado
 

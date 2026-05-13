@@ -8,6 +8,9 @@ export const AthleteSchema = z.object({
   gender: AthleteGenderSchema.nullable().optional(),
   birth_year: z.number().int().nullable().optional(),
   club_name: z.string().nullable().optional(),
+  current_club_id: z.union([z.string(), z.number()]).nullable().optional(),
+  current_club_name: z.string().nullable().optional(),
+  current_club_observed_at: z.string().nullable().optional(),
 });
 
 export type Athlete = z.infer<typeof AthleteSchema>;

@@ -18,12 +18,25 @@ def list_athletes(
             offset = (page - 1) * page_size
             
             query = """
-                SELECT a.id, a.full_name, a.gender, a.birth_year, c.name as club_name 
+                SELECT
+                    a.id,
+                    a.full_name,
+                    a.gender,
+                    a.birth_year,
+                    acc.club_name,
+                    acc.club_id AS current_club_id,
+                    acc.club_name AS current_club_name,
+                    acc.competition_date AS current_club_observed_at
                 FROM core.athlete a
-                LEFT JOIN core.club c ON a.club_id = c.id
+                LEFT JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
                 WHERE 1=1
             """
-            count_query = "SELECT COUNT(*) as total FROM core.athlete a WHERE 1=1"
+            count_query = """
+                SELECT COUNT(*) as total
+                FROM core.athlete a
+                LEFT JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
+                WHERE 1=1
+            """
             params = []
             
             if search:
@@ -32,8 +45,8 @@ def list_athletes(
                 params.append(f"%{search}%")
                 
             if club_id:
-                query += " AND a.club_id = %s"
-                count_query += " AND a.club_id = %s"
+                query += " AND acc.club_id = %s"
+                count_query += " AND acc.club_id = %s"
                 params.append(club_id)
                 
             if gender and gender != 'all':
@@ -67,9 +80,17 @@ def get_athlete(athlete_id: int):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT a.id, a.full_name, a.gender, a.birth_year, c.name as club_name 
+                SELECT
+                    a.id,
+                    a.full_name,
+                    a.gender,
+                    a.birth_year,
+                    acc.club_name,
+                    acc.club_id AS current_club_id,
+                    acc.club_name AS current_club_name,
+                    acc.competition_date AS current_club_observed_at
                 FROM core.athlete a
-                LEFT JOIN core.club c ON a.club_id = c.id
+                LEFT JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
                 WHERE a.id = %s
             """, (athlete_id,))
             athlete = cur.fetchone()

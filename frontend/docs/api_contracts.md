@@ -24,7 +24,10 @@ Buscador general de atletas.
       "full_name": "Soto, Juan",
       "gender": "male",
       "birth_year": 1990,
-      "club_name": "Estadio Español"
+      "club_name": "Estadio Español",
+      "current_club_id": 10,
+      "current_club_name": "Estadio Español",
+      "current_club_observed_at": "2026-03-28"
     }
   ],
   "meta": { "total_results": 1, "page": 1, "page_size": 20, "total_pages": 1 }
@@ -42,6 +45,9 @@ Detalle de un atleta, incluyendo sus últimos resultados.
   "gender": "male",
   "birth_year": 1990,
   "club_name": "Estadio Español",
+  "current_club_id": 10,
+  "current_club_name": "Estadio Español",
+  "current_club_observed_at": "2026-03-28",
   "recent_results": [
     {
       "id": 101,

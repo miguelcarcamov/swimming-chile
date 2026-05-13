@@ -6,6 +6,7 @@ SCHEMA_SQL = BACKEND_DIR / "sql" / "schema.sql"
 MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "001_traceability_idempotency.sql"
 COMPETITION_SCOPE_MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "002_competition_scope.sql"
 EXPECTED_POINTS_MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "003_expected_points.sql"
+ATHLETE_CURRENT_CLUB_MIGRATION_SQL = BACKEND_DIR / "sql" / "migrations" / "004_athlete_current_club_view.sql"
 
 
 def normalized_sql(path: Path) -> str:
@@ -79,5 +80,27 @@ def test_expected_points_migration_adds_result_and_relay_columns():
         "alter table relay_result add column if not exists expected_points numeric(10,2)",
         "update result set expected_points = case rank_position",
         "update relay_result set expected_points = case rank_position",
+    ]:
+        assert sql_fragment in sql
+
+
+def test_schema_declares_athlete_current_club_view():
+    sql = normalized_sql(SCHEMA_SQL)
+
+    assert "create or replace view athlete_current_club as" in sql
+    assert "from result r" in sql
+    assert "from relay_result_member rrm" in sql
+    assert "row_number() over" in sql
+
+
+def test_athlete_current_club_migration_creates_latest_observation_view():
+    sql = normalized_sql(ATHLETE_CURRENT_CLUB_MIGRATION_SQL)
+
+    for sql_fragment in [
+        "create or replace view athlete_current_club as",
+        "union all",
+        "from result r",
+        "from relay_result_member rrm",
+        "order by competition_date desc nulls last",
     ]:
         assert sql_fragment in sql

@@ -326,6 +326,10 @@ Observaciones:
 - `club_id` refleja el club conocido para una carga o cruce, no una identidad historica permanente.
 - `birth_year` puede provenir desde `stg_athlete.birth_year` o desde estimaciones de resultados/relevos cuando el atleta aun no lo tiene.
 
+El club vigente del atleta no se lee desde `athlete.club_id`. Para producto/API
+se deriva desde la vista `athlete_current_club`, usando la observacion de club
+mas reciente en resultados individuales o relevos.
+
 ### 7.7 `result`
 
 Registra resultados individuales.
@@ -663,6 +667,16 @@ mantiene cruces normalizados.
   pruebas individuales usa 9, 7, 6, 5, 4, 3, 2, 1 para puestos 1 a 8. En
   relevos usa el doble: 18, 14, 12, 10, 8, 6, 4, 2.
 - Si no hay `rank_position` entre 1 y 8, `expected_points` queda `NULL`.
+
+### 11.6 Club vigente de atleta
+
+- `athlete.club_id`: ayuda operativa para carga/cruce; no es identidad
+  historica permanente ni necesariamente club vigente.
+- `athlete_current_club`: vista derivada que toma el club observado en la
+  competencia mas reciente del atleta, considerando `result.club_id` y
+  `relay_result.club_id` via `relay_result_member`.
+- Las APIs deben exponer `current_club_name`/`current_club_id` desde esa vista
+  cuando el producto necesite mostrar "club vigente".
 
 ## 12. Propuestas de proximos cambios
 

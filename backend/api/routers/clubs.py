@@ -17,11 +17,11 @@ def list_clubs(
             
             query = """
                 SELECT c.id, c.name, c.short_name as city, c.region as country, c.association_name,
-                       (SELECT count(*) FROM core.athlete a WHERE a.club_id = c.id) as total_athletes
+                       (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
                 FROM core.club c 
-                WHERE EXISTS (SELECT 1 FROM core.athlete a WHERE a.club_id = c.id)
+                WHERE EXISTS (SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id)
             """
-            count_query = "SELECT COUNT(*) as total FROM core.club c WHERE EXISTS (SELECT 1 FROM core.athlete a WHERE a.club_id = c.id)"
+            count_query = "SELECT COUNT(*) as total FROM core.club c WHERE EXISTS (SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id)"
             params = []
             
             if search:
@@ -58,7 +58,7 @@ def get_club(club_id: int):
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT c.id, c.name, c.short_name as city, c.region as country, c.association_name,
-                       (SELECT count(*) FROM core.athlete a WHERE a.club_id = c.id) as total_athletes
+                       (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
                 FROM core.club c
                 WHERE c.id = %s
             """, (club_id,))

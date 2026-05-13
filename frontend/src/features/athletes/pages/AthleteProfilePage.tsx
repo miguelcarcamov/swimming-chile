@@ -85,9 +85,9 @@ export const AthleteProfilePage: React.FC = () => {
                   Año de nacimiento: {athlete.birth_year}
                 </span>
               )}
-              {athlete.club_name && (
+              {(athlete.current_club_name || athlete.club_name) && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                  Club actual: {athlete.club_name}
+                  Club vigente: {athlete.current_club_name || athlete.club_name}
                 </span>
               )}
             </div>
