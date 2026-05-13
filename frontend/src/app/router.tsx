@@ -31,8 +31,12 @@ export const router = createBrowserRouter([
         element: <ClubProfilePage />,
       },
       {
+        path: 'calendar',
+        element: <CompetitionsPage mode="upcoming" />,
+      },
+      {
         path: 'competitions',
-        element: <CompetitionsPage />,
+        element: <CompetitionsPage mode="past" />,
       },
       {
         path: 'competitions/:id',

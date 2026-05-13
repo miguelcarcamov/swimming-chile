@@ -24,9 +24,27 @@ const genderTranslations: Record<string, string> = {
 };
 
 // Componente local para cada Prueba (Colapsable)
-const EventCard: React.FC<{ event: CompetitionEvent; eventTitle: string; isSearching: boolean }> = ({ event, eventTitle, isSearching }) => {
+const getMinAge = (ageGroup: string) => {
+  const match = ageGroup.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
+type AgeGroupCategory = CompetitionEvent & { categoryTitle: string };
+
+type PruebaGroup = {
+  pruebaKey: string;
+  pruebaTitle: string;
+  distance_m: number;
+  stroke: string;
+  gender: string;
+  ageGroups: AgeGroupCategory[];
+};
+
+const PruebaCard: React.FC<{ group: PruebaGroup; isSearching: boolean }> = ({ group, isSearching }) => {
   const [expanded, setExpanded] = useState(false);
   const showContent = isSearching || expanded;
+  const totalParticipants = group.ageGroups.reduce((acc, cat) => acc + cat.results.length, 0);
+  const isRelay = group.stroke.includes('relay');
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -38,62 +56,77 @@ const EventCard: React.FC<{ event: CompetitionEvent; eventTitle: string; isSearc
           <svg className={`w-5 h-5 text-slate-400 transition-transform ${showContent ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
-          <h3 className="text-lg font-bold text-slate-900">{eventTitle}</h3>
+          <h3 className="text-lg font-bold text-slate-900">{group.pruebaTitle}</h3>
         </div>
         <div className="flex items-center gap-3">
-           <span className="text-sm text-slate-500 font-medium">{event.results.length} nadadores</span>
-           <span className="text-xs font-mono font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded hidden sm:inline-block">ID: {event.id.split('-')[0]}</span>
+           <span className="text-sm text-slate-500 font-medium">{totalParticipants} {isRelay ? 'equipos' : 'nadadores'}</span>
+           <span className="text-xs font-mono font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded hidden sm:inline-block">{group.ageGroups.length} categorías</span>
         </div>
       </div>
       
       {showContent && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-3 w-16 text-center">Pos</th>
-                <th className="px-6 py-3">Nadador</th>
-                <th className="px-6 py-3 hidden sm:table-cell">Club</th>
-                <th className="px-6 py-3 text-right">Tiempo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {event.results.map((result, idx) => (
-                <tr key={`${result.athlete_id}-${idx}`} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-3 text-center">
-                    {result.rank ? (
-                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs ${
-                        result.rank === 1 ? 'bg-amber-100 text-amber-700' :
-                        result.rank === 2 ? 'bg-slate-100 text-slate-600' :
-                        result.rank === 3 ? 'bg-orange-50 text-orange-700' :
-                        'text-slate-500'
-                      }`}>
-                        {result.rank}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 font-bold">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-3">
-                    <Link to={`/athletes/${result.athlete_id}`} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline" onClick={(e) => e.stopPropagation()}>
-                      {result.athlete_name}
-                    </Link>
-                    <div className="text-xs text-slate-500 sm:hidden mt-0.5">{result.club_name}</div>
-                  </td>
-                  <td className="px-6 py-3 text-slate-600 hidden sm:table-cell">{result.club_name}</td>
-                  <td className="px-6 py-3 text-right">
-                    {result.status === 'valid' ? (
-                      <span className="font-mono font-bold text-slate-900">{result.time_text}</span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 uppercase">
-                        {result.status}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col">
+          {group.ageGroups.map(cat => (
+            <div key={cat.id} className="border-b border-slate-100 last:border-0">
+              <div className="bg-slate-50/50 px-6 py-2 border-b border-slate-200">
+                <h4 className="font-semibold text-slate-700 text-sm">{cat.categoryTitle}</h4>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
+                    <tr>
+                      <th className="px-6 py-2 w-16 text-center">Pos</th>
+                      <th className="px-6 py-2">{isRelay ? 'Equipo' : 'Nadador'}</th>
+                      <th className="px-6 py-2 hidden sm:table-cell">Club</th>
+                      <th className="px-6 py-2 text-right">Tiempo</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {cat.results.map((result, idx) => (
+                      <tr key={`${result.athlete_id || 'relay'}-${idx}`} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-2 text-center">
+                          {result.rank ? (
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs ${
+                              result.rank === 1 ? 'bg-amber-100 text-amber-700' :
+                              result.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                              result.rank === 3 ? 'bg-orange-50 text-orange-700' :
+                              'text-slate-500'
+                            }`}>
+                              {result.rank}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-bold">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-2">
+                          {result.athlete_id ? (
+                            <Link to={`/athletes/${result.athlete_id}`} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline" onClick={(e) => e.stopPropagation()}>
+                              {result.athlete_name}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-slate-800">
+                              {result.athlete_name}
+                            </span>
+                          )}
+                          <div className="text-xs text-slate-500 sm:hidden mt-0.5">{result.club_name}</div>
+                        </td>
+                        <td className="px-6 py-2 text-slate-600 hidden sm:table-cell">{result.club_name}</td>
+                        <td className="px-6 py-2 text-right">
+                          {result.status === 'valid' ? (
+                            <span className="font-mono font-bold text-slate-900">{result.time_text}</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 uppercase">
+                              {result.status}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -113,33 +146,72 @@ export const CompetitionProfilePage: React.FC = () => {
     retry: false,
   });
 
-  const filteredEvents = useMemo(() => {
+  const groupedEvents = useMemo(() => {
     if (!data) return [];
     
-    return data.events.map(event => {
-      if (genderFilter !== 'all' && event.gender !== genderFilter) return null;
-      
-      const eventTitle = `${event.distance_m}m ${strokeTranslations[event.stroke]} ${genderTranslations[event.gender]} - ${event.age_group} años`;
+    const groups = new Map<string, PruebaGroup>();
+
+    data.events.forEach(event => {
+      if (genderFilter !== 'all' && event.gender !== genderFilter) return;
+
+      const pruebaKey = `${event.distance_m}-${event.stroke}-${event.gender}`;
+      const pruebaTitle = `${event.distance_m}m ${strokeTranslations[event.stroke]} ${genderTranslations[event.gender]}`;
+      const categoryTitle = `Categoría: ${event.age_group} años`;
+
       const query = searchQuery.toLowerCase().trim();
       
-      if (!query) return { ...event, eventTitle };
+      let matchingResults = event.results;
+      let matchesSearch = false;
 
-      const matchesEventTitle = eventTitle.toLowerCase().includes(query);
-      
-      const matchingResults = event.results.filter(r => 
-        r.athlete_name.toLowerCase().includes(query) ||
-        r.club_name.toLowerCase().includes(query)
-      );
-      
-      if (!matchesEventTitle && matchingResults.length === 0) return null;
-      
-      return {
-        ...event,
-        eventTitle,
-        results: matchesEventTitle ? event.results : matchingResults
-      };
-    }).filter(Boolean) as (CompetitionEvent & { eventTitle: string })[];
+      if (query) {
+        const matchesPruebaTitle = pruebaTitle.toLowerCase().includes(query);
+        const matchesCategory = categoryTitle.toLowerCase().includes(query);
+        
+        matchingResults = event.results.filter(r => 
+          r.athlete_name.toLowerCase().includes(query) ||
+          (r.club_name || '').toLowerCase().includes(query)
+        );
+
+        if (matchesPruebaTitle || matchesCategory) {
+          matchingResults = event.results;
+          matchesSearch = true;
+        } else if (matchingResults.length > 0) {
+          matchesSearch = true;
+        }
+      } else {
+        matchesSearch = true;
+      }
+
+      if (matchesSearch) {
+        if (!groups.has(pruebaKey)) {
+          groups.set(pruebaKey, {
+            pruebaKey,
+            pruebaTitle,
+            distance_m: event.distance_m,
+            stroke: event.stroke,
+            gender: event.gender,
+            ageGroups: []
+          });
+        }
+        groups.get(pruebaKey)!.ageGroups.push({
+          ...event,
+          categoryTitle,
+          results: matchingResults
+        });
+      }
+    });
+
+    return Array.from(groups.values()).map(group => {
+      group.ageGroups.sort((a, b) => getMinAge(a.age_group) - getMinAge(b.age_group));
+      return group;
+    });
   }, [data, searchQuery, genderFilter]);
+
+  const totalUniquePruebas = useMemo(() => {
+    if (!data) return 0;
+    const unique = new Set(data.events.map(e => `${e.distance_m}-${e.stroke}-${e.gender}`));
+    return unique.size;
+  }, [data]);
 
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
@@ -194,7 +266,7 @@ export const CompetitionProfilePage: React.FC = () => {
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center min-w-32 border border-white/10 shadow-inner">
-            <span className="block text-3xl font-black text-white leading-none">{data.events.length}</span>
+            <span className="block text-3xl font-black text-white leading-none">{totalUniquePruebas}</span>
             <span className="text-xs font-medium text-slate-300 uppercase tracking-widest mt-1 block">Pruebas Totales</span>
           </div>
         </div>
@@ -233,18 +305,17 @@ export const CompetitionProfilePage: React.FC = () => {
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-6">Resultados</h2>
         
-        {filteredEvents.length === 0 ? (
+        {groupedEvents.length === 0 ? (
           <EmptyState 
             title="No se encontraron resultados" 
             description={isSearching ? "Intenta con otros términos de búsqueda." : "No hay resultados cargados para esta competencia."} 
           />
         ) : (
           <div className="flex flex-col gap-4">
-            {filteredEvents.map((event) => (
-              <EventCard 
-                key={event.id} 
-                event={event} 
-                eventTitle={event.eventTitle} 
+            {groupedEvents.map((group) => (
+              <PruebaCard 
+                key={group.pruebaKey} 
+                group={group} 
                 isSearching={isSearching} 
               />
             ))}

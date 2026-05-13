@@ -16,9 +16,40 @@ export const AthleteProfilePage: React.FC = () => {
     enabled: !!id,
   });
 
+  const { pbs, groupedRecent } = React.useMemo(() => {
+    if (!athlete || !athlete.recent_results) return { pbs: [], groupedRecent: {} };
+    
+    // PBs
+    const bests = new Map<string, typeof athlete.recent_results[0]>();
+    athlete.recent_results.forEach(res => {
+      if (res.status !== 'valid' || !res.result_time_ms) return;
+      const key = `${res.distance_m}-${res.stroke}-${res.course_type}`;
+      if (!bests.has(key) || res.result_time_ms < bests.get(key)!.result_time_ms!) {
+        bests.set(key, res);
+      }
+    });
+    
+    const pbArray = Array.from(bests.values()).sort((a, b) => {
+      if (a.stroke !== b.stroke) return (a.stroke || '').localeCompare(b.stroke || '');
+      if (a.distance_m !== b.distance_m) return (a.distance_m || 0) - (b.distance_m || 0);
+      return (a.course_type || '').localeCompare(b.course_type || '');
+    });
+
+    // Grouping by Competition
+    const grouped = athlete.recent_results.reduce((acc, res) => {
+      if (!acc[res.competition_name]) acc[res.competition_name] = [];
+      acc[res.competition_name].push(res);
+      return acc;
+    }, {} as Record<string, typeof athlete.recent_results>);
+    
+    return { pbs: pbArray, groupedRecent: grouped };
+  }, [athlete]);
+
   if (isLoading) return <LoadingState />;
   if (isError) return <ErrorState onRetry={() => refetch()} />;
   if (!athlete) return <EmptyState title="Atleta no encontrado" />;
+
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -64,48 +95,87 @@ export const AthleteProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Mejores Tiempos */}
+      {pbs.length > 0 && (
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 mb-4 px-1">Mejores Tiempos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pbs.map(res => (
+              <div key={res.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-slate-900">{res.distance_m}m <span className="capitalize">{res.stroke}</span></div>
+                  <div className="text-xs text-slate-500 uppercase flex items-center gap-2 mt-0.5 tracking-wider">
+                    <span>{res.course_type}</span>
+                    {res.age_group && (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                        <span className="tracking-wide">Cat: {res.age_group}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono text-blue-700 font-bold text-lg">{res.result_time_text}</div>
+                  <div className="text-xs text-slate-500 truncate max-w-[120px]" title={res.competition_name}>{res.competition_name}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Recent Results */}
       <div>
-        <h2 className="text-xl font-bold text-slate-900 mb-4 px-1">Resultados Recientes</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-4 px-1 mt-8">Historial de Resultados</h2>
         
         {!athlete.recent_results || athlete.recent_results.length === 0 ? (
           <EmptyState title="Sin resultados" description="Este atleta no tiene tiempos registrados aún." />
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4">Prueba</th>
-                    <th className="px-6 py-4">Competencia</th>
-                    <th className="px-6 py-4">Tiempo</th>
-                    <th className="px-6 py-4 text-center">Puntos</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {athlete.recent_results.map((result) => (
-                    <tr key={result.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-slate-900">
-                        {result.distance_m}m <span className="capitalize">{result.stroke}</span>
-                        <span className="ml-2 text-xs uppercase bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">{result.course_type}</span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600">
-                        {result.competition_name}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-blue-700 font-semibold">{result.result_time_text}</span>
-                        {result.status !== 'valid' && (
-                          <span className="ml-2 text-xs text-red-600 uppercase">({result.status})</span>
+          <div className="space-y-6">
+            {Object.entries(groupedRecent).map(([compName, results]) => (
+              <div key={compName} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
+                  <h3 className="font-bold text-slate-800">{compName}</h3>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {results.map(res => (
+                    <div key={res.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-slate-50/50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                          {res.rank_position ? `${res.rank_position}°` : '-'}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-900">{res.distance_m}m <span className="capitalize">{res.stroke}</span></div>
+                          <div className="text-xs text-slate-500 uppercase flex items-center gap-2">
+                            <span>{res.course_type}</span>
+                            {res.age_group && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                                <span className="tracking-wide">Cat: {res.age_group}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-900 font-semibold">{res.result_time_text}</span>
+                          {res.status !== 'valid' && (
+                            <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{res.status}</span>
+                          )}
+                        </div>
+                        {res.points && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            <span className="font-semibold text-emerald-600">{res.points}</span> pts
+                          </div>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-center text-slate-500">
-                        {result.points ? result.points : '-'}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

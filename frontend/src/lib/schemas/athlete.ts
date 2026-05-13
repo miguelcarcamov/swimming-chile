@@ -5,7 +5,7 @@ import { AthleteGenderSchema, StrokeSchema, ResultStatusSchema, CourseTypeSchema
 export const AthleteSchema = z.object({
   id: z.union([z.string(), z.number()]),
   full_name: z.string(),
-  gender: AthleteGenderSchema,
+  gender: AthleteGenderSchema.nullable().optional(),
   birth_year: z.number().int().nullable().optional(),
   club_name: z.string().nullable().optional(),
 });
@@ -15,16 +15,18 @@ export type Athlete = z.infer<typeof AthleteSchema>;
 // Athlete Result (Individual)
 export const AthleteResultSchema = z.object({
   id: z.union([z.string(), z.number()]),
-  event_name: z.string(),
-  stroke: StrokeSchema,
-  distance_m: z.number().int(),
-  course_type: CourseTypeSchema,
+  event_name: z.string().nullable().optional(),
+  stroke: StrokeSchema.nullable().optional(),
+  distance_m: z.number().int().nullable().optional(),
+  course_type: CourseTypeSchema.nullable().optional(),
+  age_group: z.string().nullable().optional(),
   competition_name: z.string(),
   competition_date: z.string().nullable().optional(),
-  result_time_text: z.string(),
-  result_time_ms: z.number().int(),
-  points: z.number().nullable().optional(),
-  status: ResultStatusSchema,
+  result_time_text: z.string().nullable().optional(),
+  result_time_ms: z.number().int().nullable().optional(),
+  points: z.coerce.number().nullable().optional(),
+  rank_position: z.number().int().nullable().optional(),
+  status: ResultStatusSchema.nullable().optional(),
 });
 
 export type AthleteResult = z.infer<typeof AthleteResultSchema>;

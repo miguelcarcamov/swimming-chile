@@ -5,8 +5,92 @@ import { competitionService } from '../api/competitionService';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { EmptyState } from '../../../components/ui/EmptyState';
+import type { Competition } from '../../../lib/schemas/competition';
 
-export const CompetitionsPage: React.FC = () => {
+const CompetitionCard: React.FC<{ comp: Competition; isUpcoming?: boolean }> = ({ comp, isUpcoming = false }) => {
+  // Ajuste para evitar bugs de zona horaria: agregar T00:00:00 si viene solo YYYY-MM-DD
+  const dateString = comp.date_start.includes('T') ? comp.date_start : `${comp.date_start}T12:00:00`;
+  const dateObj = new Date(dateString);
+  const month = dateObj.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase();
+  const day = dateObj.getDate();
+  const yearStr = dateObj.getFullYear();
+  
+  const innerContent = (
+    <>
+      <div className="flex bg-slate-50 border-b border-slate-100">
+        <div className="w-20 bg-blue-600 text-white flex flex-col items-center justify-center p-3 text-center">
+          <span className="text-xs font-bold tracking-widest">{month}</span>
+          <span className="text-2xl font-black leading-none my-1">{day}</span>
+          <span className="text-xs opacity-80">{yearStr}</span>
+        </div>
+        <div className="p-4 flex-1 flex flex-col justify-center">
+          <h3 className={`text-lg font-bold text-slate-900 leading-tight transition-colors ${!isUpcoming ? 'group-hover:text-blue-700' : ''}`}>
+            {comp.name}
+          </h3>
+        </div>
+      </div>
+
+      <div className="p-5 flex-1 flex flex-col justify-between">
+        <div className="space-y-3 mb-6">
+          <div className="flex items-start gap-2 text-slate-600 text-sm">
+            <svg className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>{comp.location || 'Sede por confirmar'}</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-600 text-sm">
+            <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>
+              Piscina {!comp.course_type ? 'Desconocida' : comp.course_type === 'scm' ? 'Corta (25m)' : 'Larga (50m)'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-auto pt-4 border-t border-slate-100">
+          {isUpcoming ? (
+            <span className="text-slate-400 text-sm font-medium flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Calendario
+            </span>
+          ) : (
+            <span className="text-blue-600 text-sm font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+              Ver Resultados
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+
+  if (isUpcoming) {
+    return (
+      <div className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full opacity-90 transition-all">
+        {innerContent}
+      </div>
+    );
+  }
+
+  return (
+    <Link 
+      to={`/competitions/${comp.id}`}
+      className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full transition-all hover:shadow-md hover:border-blue-300 cursor-pointer"
+    >
+      {innerContent}
+    </Link>
+  );
+};
+
+// CompetitionGroup ha sido eliminado en favor de una grilla mensual y listado directo
+
+export const CompetitionsPage: React.FC<{ mode: 'upcoming' | 'past' }> = ({ mode }) => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [debouncedQuery, setDebouncedQuery] = React.useState('');
   const [year, setYear] = React.useState('all');
@@ -24,26 +108,51 @@ export const CompetitionsPage: React.FC = () => {
   // Reset página cuando cambian los selectores
   React.useEffect(() => {
     setPage(1);
-  }, [year, circuit]);
+  }, [year, circuit, mode]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['competitions', debouncedQuery, year, page],
-    queryFn: () => competitionService.getCompetitions(debouncedQuery, year, page),
+    queryKey: ['competitions', debouncedQuery, year, page, mode],
+    queryFn: () => competitionService.getCompetitions(debouncedQuery, year, page, mode),
   });
 
-  // Extraer años para el selector (estático, desde el actual hasta 2015)
-  const availableYears = React.useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    return Array.from({ length: currentYear - 2014 }, (_, i) => currentYear - i);
-  }, []);
+  const { data: yearsData } = useQuery({
+    queryKey: ['competition-years'],
+    queryFn: competitionService.getCompetitionYears,
+  });
+
+  const availableYears = yearsData || [];
+
+  // Filtrado local removido, el backend ahora filtra por date_start
+  const competitionsList = React.useMemo(() => {
+    if (!data) return [];
+    return data.data;
+  }, [data]);
+
+  const groupedByMonth = React.useMemo(() => {
+    if (mode !== 'upcoming' || !competitionsList) return {};
+    return competitionsList.reduce((acc, comp) => {
+      const d = new Date(comp.date_start.includes('T') ? comp.date_start : `${comp.date_start}T12:00:00`);
+      const monthYear = d.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+      const key = monthYear.charAt(0).toUpperCase() + monthYear.slice(1);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(comp);
+      return acc;
+    }, {} as Record<string, typeof competitionsList>);
+  }, [competitionsList, mode]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header & Search */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Competencias</h1>
-          <p className="text-slate-500 mt-1">Explora las competencias y sus resultados detallados.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            {mode === 'upcoming' ? 'Calendario' : 'Resultados de Competencias'}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            {mode === 'upcoming' 
+              ? 'Revisa las próximas competencias programadas.' 
+              : 'Explora las competencias y sus resultados detallados.'}
+          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
@@ -61,16 +170,18 @@ export const CompetitionsPage: React.FC = () => {
           </div>
           
           <div className="flex gap-3">
-            <select 
-              value={year} 
-              onChange={(e) => setYear(e.target.value)}
-              className="flex-1 sm:w-28 py-2 pl-3 pr-8 border border-slate-300 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-            >
-              <option value="all">Año</option>
-              {availableYears.map(y => (
-                <option key={y} value={y.toString()}>{y}</option>
-              ))}
-            </select>
+            {mode === 'past' && (
+              <select 
+                value={year} 
+                onChange={(e) => setYear(e.target.value)}
+                className="flex-1 sm:w-28 py-2 pl-3 pr-8 border border-slate-300 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="all">Año</option>
+                {availableYears.map(y => (
+                  <option key={y} value={y.toString()}>{y}</option>
+                ))}
+              </select>
+            )}
 
             <select 
               value={circuit} 
@@ -93,65 +204,27 @@ export const CompetitionsPage: React.FC = () => {
           {data.data.length === 0 ? (
             <EmptyState title="No se encontraron competencias" description="Modifica los filtros para ver más resultados." />
           ) : (
-            <div className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {data.data.map((comp) => {
-                  const dateObj = new Date(comp.date_start);
-                  const month = dateObj.toLocaleDateString('es-CL', { month: 'short' }).toUpperCase();
-                  const day = dateObj.getDate();
-                  const yearStr = dateObj.getFullYear();
-                  
-                  return (
-                    <Link 
-                      key={comp.id} 
-                      to={`/competitions/${comp.id}`}
-                      className="group bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col h-full"
-                    >
-                      <div className="flex bg-slate-50 border-b border-slate-100">
-                        <div className="w-20 bg-blue-600 text-white flex flex-col items-center justify-center p-3 text-center">
-                          <span className="text-xs font-bold tracking-widest">{month}</span>
-                          <span className="text-2xl font-black leading-none my-1">{day}</span>
-                          <span className="text-xs opacity-80">{yearStr}</span>
-                        </div>
-                        <div className="p-4 flex-1 flex flex-col justify-center">
-                          <h3 className="text-lg font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">
-                            {comp.name}
-                          </h3>
-                        </div>
+            <div className="space-y-10">
+              {mode === 'upcoming' ? (
+                <div className="space-y-12">
+                  {Object.entries(groupedByMonth).map(([month, comps]) => (
+                    <div key={month} className="space-y-6">
+                      <h2 className="text-2xl font-bold text-slate-800 border-b border-slate-200 pb-2">{month}</h2>
+                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {(comps as Competition[]).map((comp) => (
+                          <CompetitionCard key={comp.id} comp={comp} isUpcoming={true} />
+                        ))}
                       </div>
-
-                      <div className="p-5 flex-1 flex flex-col justify-between">
-                        <div className="space-y-3 mb-6">
-                          <div className="flex items-start gap-2 text-slate-600 text-sm">
-                            <svg className="w-4 h-4 mt-0.5 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span>{comp.location || 'Sede por confirmar'}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-slate-600 text-sm">
-                            <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            <span>
-                              Piscina {comp.course_type === 'scm' ? 'Corta (25m)' : 'Larga (50m)'}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end mt-auto pt-4 border-t border-slate-100">
-                          <span className="text-blue-600 text-sm font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                            Ver Resultados
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {competitionsList.map((comp) => (
+                    <CompetitionCard key={comp.id} comp={comp} isUpcoming={false} />
+                  ))}
+                </div>
+              )}
 
               {/* Paginación */}
               <div className="flex items-center justify-between border-t border-slate-200 pt-4">

@@ -29,5 +29,5 @@ export const ResultStatusSchema = z.enum([
 ]);
 export type ResultStatus = z.infer<typeof ResultStatusSchema>;
 
-export const CourseTypeSchema = z.enum(['scm', 'lcm', 'unknown']);
+export const CourseTypeSchema = z.enum(['scm', 'lcm', 'owy', 'unknown']);
 export type CourseType = z.infer<typeof CourseTypeSchema>;

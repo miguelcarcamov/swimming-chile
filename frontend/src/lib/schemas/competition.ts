@@ -8,7 +8,7 @@ export const CompetitionSchema = z.object({
   date_start: z.string(),
   date_end: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
-  course_type: CourseTypeSchema,
+  course_type: CourseTypeSchema.nullable().optional(),
 });
 
 export type Competition = z.infer<typeof CompetitionSchema>;
@@ -25,7 +25,7 @@ import { EventGenderSchema, StrokeSchema, ResultStatusSchema } from './canon';
 export const CompetitionResultSchema = z.object({
   rank: z.number().int().nullable().optional(),
   athlete_name: z.string(),
-  athlete_id: z.union([z.string(), z.number()]),
+  athlete_id: z.union([z.string(), z.number()]).nullable().optional(),
   club_name: z.string().nullable().optional(),
   time_text: z.string(),
   status: ResultStatusSchema,

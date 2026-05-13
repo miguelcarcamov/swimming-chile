@@ -3,11 +3,20 @@ import type { AthletesResponse, AthleteProfile } from '../../../lib/schemas/athl
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
+export interface SearchAthletesParams {
+  query?: string;
+  club_id?: string;
+  gender?: string;
+  page?: number;
+}
+
 export const athleteService = {
-  async searchAthletes(query: string = '', page: number = 1): Promise<AthletesResponse> {
+  async searchAthletes(params: SearchAthletesParams = {}): Promise<AthletesResponse> {
     const url = new URL(`${API_BASE_URL}/api/athletes`);
-    if (query) url.searchParams.append('search', query);
-    url.searchParams.append('page', page.toString());
+    if (params.query) url.searchParams.append('search', params.query);
+    if (params.club_id) url.searchParams.append('club_id', params.club_id);
+    if (params.gender && params.gender !== 'all') url.searchParams.append('gender', params.gender);
+    url.searchParams.append('page', (params.page || 1).toString());
     
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch athletes');

@@ -9,6 +9,7 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 export const AthletesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [genderFilter, setGenderFilter] = useState('all');
   const [page, setPage] = useState(1);
 
   // Sincronización simple de debouncing para no saturar llamadas
@@ -21,8 +22,8 @@ export const AthletesPage: React.FC = () => {
   }, [searchTerm]);
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['athletes', debouncedQuery, page],
-    queryFn: () => athleteService.searchAthletes(debouncedQuery, page),
+    queryKey: ['athletes', debouncedQuery, genderFilter, page],
+    queryFn: () => athleteService.searchAthletes({ query: debouncedQuery, gender: genderFilter, page }),
   });
 
   return (
@@ -33,17 +34,28 @@ export const AthletesPage: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Atletas</h1>
           <p className="text-slate-500 mt-1">Busca nadadores y revisa su historial competitivo.</p>
         </div>
-        <div className="relative w-full md:w-96">
-          <input
-            type="text"
-            placeholder="Buscar por nombre (ej. Perez, Juan)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none bg-white"
-          />
-          <svg className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+        <div className="flex flex-col sm:flex-row w-full md:w-auto gap-3">
+          <div className="relative w-full sm:w-80">
+            <input
+              type="text"
+              placeholder="Buscar por nombre (ej. Perez, Juan)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow outline-none bg-white"
+            />
+            <svg className="w-5 h-5 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <select 
+            value={genderFilter}
+            onChange={(e) => { setGenderFilter(e.target.value); setPage(1); }}
+            className="w-full sm:w-40 px-4 py-2 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white text-slate-700"
+          >
+            <option value="all">Ambos géneros</option>
+            <option value="female">Femenino</option>
+            <option value="male">Masculino</option>
+          </select>
         </div>
       </div>
 
