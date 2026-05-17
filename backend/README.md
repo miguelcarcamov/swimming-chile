@@ -1,105 +1,97 @@
-# Natación Chile - Data Platform
+﻿# SwimStats Chile - Backend
 
-Plataforma de datos y pipeline ETL (Extract, Transform, Load) diseñada para ingerir, normalizar y consolidar resultados históricos de competencias de natación en Chile. El foco inicial de esta plataforma son los resultados de natación master publicados por la Federación Chilena de Deportes Acuáticos (FECHIDA) y la Fundación Chilena Master de Natación (FCHMN).
+Backend data platform for **SwimStats Chile**, focused on ingesting, normalizing, validating and exposing Chilean competitive swimming results.
 
-## 📌 Valor del Negocio
+The current dataset focuses on master swimming results published in public documents, including FCHMN sources, but the backend is designed as a reusable data pipeline rather than a federation-specific script collection.
 
-Históricamente, los resultados de competencias de natación en Chile se distribuyen en formato PDF (frecuentemente generados por software como HY-TEK o Swim It Up), lo que imposibilita el seguimiento longitudinal del rendimiento de los atletas, el análisis estadístico y la correcta validación de récords. 
+## Business value
 
-Este proyecto resuelve ese problema mediante la creación de una **fuente única de verdad (Single Source of Truth)**. Extrae datos estructurados desde archivos PDF opacos, aplica reglas de negocio para curar identidades deportivas y expone los datos en una base de datos relacional lista para integraciones analíticas o interfaces de usuario.
+Swimming competition results are often distributed as PDFs or event-specific files. That makes it difficult to search athlete histories, compare performances, audit records or build public-facing analytics.
 
-## 🏗️ Arquitectura de Datos
+This backend creates a traceable source of truth by extracting structured data from semi-structured result files, applying validation gates, curating identity conflicts and exposing normalized data through PostgreSQL and FastAPI.
 
-El sistema implementa una arquitectura ELT/ETL robusta con separación estricta de responsabilidades, asegurando trazabilidad, idempotencia y calidad de datos.
+## Data architecture
 
 ```mermaid
 graph TD
-    subgraph "1. Extracción (Discovery & Download)"
-        A[Web Scraper] -->|Genera| B(Manifest JSONL)
+    subgraph "1. Discovery and download"
+        A[Scraper] -->|Generates| B[Manifest JSONL]
         B --> C[Downloader]
-        C -->|Descarga y Hash SHA-256| D[(Local Storage: PDFs)]
+        C -->|Stores PDF + SHA-256| D[(Local PDF storage)]
     end
 
-    subgraph "2. Transformación (Parsing & Validation)"
-        D --> E[PDF Parser Engine]
-        E -->|Extrae Heurísticas| F[(Archivos Raw CSV)]
-        F --> G[Batch Validator]
-        G -->|Evalúa Compuertas de Calidad| H{Aprobado?}
-        H -- No --> I[Requires Review]
-        H -- Sí --> J[(Archivos Curados CSV)]
-    end
-    
-    subgraph "3. Carga (Staging & Core DB)"
-        J --> K[Pipeline Loader]
-        K -->|COPY| L[(PostgreSQL: Staging)]
-        L -->|Deduplicación e Integridad| M[(PostgreSQL: Core)]
+    subgraph "2. Parsing, curation and validation"
+        D --> E[PDF parser]
+        E --> F[(Raw CSV outputs)]
+        F --> G[Athlete and club curation]
+        G --> H[(Curated CSV materialization)]
+        H --> I[Batch validation gates]
+        I -->|requires_review| J[Manual review]
+        I -->|validated| K[Load candidate]
     end
 
-    classDef stage fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef storage fill:#bbf,stroke:#333,stroke-width:2px;
-    class A,C,E,G,K stage;
-    class D,F,J,L,M storage;
+    subgraph "3. Database and API"
+        K --> L[(PostgreSQL staging)]
+        L --> M[(PostgreSQL core)]
+        M --> N[FastAPI]
+        N --> O[Frontend and analytics consumers]
+    end
 ```
 
-### Decisiones de Diseño Clave
+## Backend responsibilities
 
-1. **Staging antes de Core:** Los datos ingresan primero a tablas `stg_*` en PostgreSQL para casteos y cruces antes de insertarse en el modelo dimensional final.
-2. **Desacoplamiento de Identidad:** La entidad `club` se usa para contexto, pero la identidad del `athlete` no está rígidamente atada a un club de por vida, permitiendo el rastreo longitudinal.
-3. **Idempotencia y Trazabilidad:** Cada carga verifica el `pdf_sha256` y los orígenes (`source_url`). Reprocesar el mismo documento no duplica métricas, y un error en un documento no contamina el resto del lote (aislamiento de fallos).
-4. **Validación Pre-Carga (Compuertas):** Antes de tocar la base de datos de producción, el sistema ejecuta validaciones estrictas (tiempos imposibles, residuos de OCR, campos nulos). Si el lote falla, se marca como `requires_review` y no se ingesta.
+- Discover and download public result documents through auditable manifests.
+- Parse semi-structured competition result files.
+- Normalize athletes, clubs, events, individual results and relays.
+- Materialize reviewed identity decisions before loading data.
+- Load data through staging tables into the core relational model.
+- Preserve traceability with source documents, load runs and validation issues.
+- Expose validated data through FastAPI endpoints.
 
-## 🚀 Tecnologías
+## Design decisions
 
-- **Lenguaje Principal:** Python 3
-- **Base de Datos:** PostgreSQL
-- **Procesamiento de PDF:** Expresiones regulares avanzadas y heurísticas de posicionamiento espacial para interpretar formatos multicollumna (HY-TEK, Swim It Up).
-- **Orquestación:** Scripts modulares CLI con pipelines idempotentes.
+1. **Staging before core:** Data enters `stg_*` tables before being inserted into the core schema.
+2. **Traceability first:** Each load records parser version, source URL, PDF checksum, load run and validation state.
+3. **Controlled identity curation:** Athlete identity is curated before load; club history is contextual and must not define long-term athlete identity by itself.
+4. **Quality gates:** Documents with blocking issues stay in `requires_review` and must not be loaded into core.
+5. **API as product boundary:** The frontend consumes FastAPI endpoints, not direct database access.
 
-## ⚙️ Estructura del Proyecto
+## Technologies
 
-- `scripts/parse_results_pdf.py`: Motor de parsing. Convierte PDFs en CSVs operativos.
-- `scripts/run_results_batch.py`: Ejecuta validaciones estrictas sobre los CSVs parseados.
-- `scripts/scrape_fchmn.py` & `download_manifest_pdfs.py`: Scraper y descargador asíncrono seguro basado en manifiestos.
-- `scripts/run_pipeline_results.py`: Orquestador de carga desde CSVs hacia staging y core en PostgreSQL.
-- `scripts/curate_athlete_names.py`: Motor de consolidación de identidad (resolución determinística de residuos OCR y alias de nadadores).
-- `sql/schema.sql`: DDL de la base de datos (Core, Staging, Restricciones).
+- Python 3
+- FastAPI
+- PostgreSQL
+- PDF parsing with layout-aware heuristics
+- CLI-based batch orchestration
+- Pytest for backend contracts and regression tests
 
-## 🛠️ Quickstart (Uso Operativo)
+## Key files
 
-Para instalar las dependencias:
-```powershell
-python -m pip install -r backend\requirements.txt
-```
+- `scripts/scrape_fchmn.py`: Discovers result PDF URLs and writes manifests.
+- `scripts/download_manifest_pdfs.py`: Downloads manifest PDFs and records checksums.
+- `scripts/parse_results_pdf.py`: Converts PDFs into operational CSVs.
+- `scripts/curate_athlete_names.py`: Applies reviewed athlete identity curation before load.
+- `scripts/run_results_batch.py`: Runs parse/validation/load orchestration.
+- `scripts/run_pipeline_results.py`: Loads CSVs into staging and core tables.
+- `sql/schema.sql`: Core and staging schema.
+- `sql/migrations/`: Incremental database migrations.
 
-### Flujo Típico de Ingestión Segura
+## Safe ingestion flow
 
-1. **Descubrir URLs (Discovery)**
-   Genera un manifest (`.jsonl`) sin descargar nada.
-   ```powershell
-   python backend\scripts\scrape_fchmn.py --url https://fchmn.cl/resultados/ --manifest backend\data\raw\manifests\fchmn_2026.jsonl --pdf-dir backend\data\raw\results_pdf\fchmn --out-dir-root backend\data\raw\results_csv\fchmn
-   ```
+1. Discover URLs and write a manifest.
+2. Download PDFs and record checksums.
+3. Parse and validate without `--load`.
+4. Freeze or curate a validated manifest.
+5. Follow `docs/pre_load_checklist.md` before any explicit load.
+6. Load only reviewed, scoped and validated documents.
+7. Run post-load audits against the database.
 
-2. **Descargar PDFs (Download)**
-   Descarga de manera controlada y calcula el hash criptográfico para trazabilidad.
-   ```powershell
-   python backend\scripts\download_manifest_pdfs.py --manifest backend\data\raw\manifests\fchmn_2026.jsonl --summary-json backend\data\raw\batch_summaries\download_summary.json
-   ```
+## Additional documentation
 
-3. **Parsear y Validar (Pre-Load)**
-   Transforma PDFs a CSVs y pasa las reglas de calidad **sin cargar a la BD**.
-   ```powershell
-   python backend\scripts\run_results_batch.py --manifest backend\data\raw\manifests\fchmn_2026.jsonl --summary-json backend\data\raw\batch_summaries\batch_summary.json
-   ```
-
-4. **Congelar y Cargar (Load)**
-   Congela un manifest excluyendo archivos con errores, luego ejecuta la ingesta en PostgreSQL.
-   ```powershell
-   # Congelar
-   python backend\scripts\freeze_validated_manifest.py --batch-summary backend\data\raw\batch_summaries\batch_summary.json --manifest backend\data\raw\manifests\frozen.jsonl --competition-scope fchmn_local
-   
-   # Cargar a Core
-   python backend\scripts\run_results_batch.py --manifest backend\data\raw\manifests\frozen.jsonl --load --user postgres --password ******* 
-   ```
-
-## 📖 Documentación Adicional
-Revisa el directorio `docs/` para esquemas de base de datos (`schema.md`), contratos del parser (`parser_contracts.md`) y el proceso de validación pre-carga (`pre_load_checklist.md`).
+- [AI workflow](docs/ai_workflow.md)
+- [Pre-load checklist](docs/pre_load_checklist.md)
+- [Validation runbook](docs/fchmn_results_validation.md)
+- [Schema documentation](docs/schema.md)
+- [Batch runner contract](docs/batch_runner_contract.md)
+- [Parser contracts](docs/parser_contracts.md)
+- [Changelog](docs/CHANGELOG.md)

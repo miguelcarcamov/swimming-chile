@@ -16,7 +16,7 @@ export const MainLayout: React.FC = () => {
                 </svg>
               </div>
               <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-600">
-                Natación Chile
+                SwimStats Chile
               </span>
             </div>
             
@@ -57,7 +57,7 @@ export const MainLayout: React.FC = () => {
       {/* Footer Minimalista */}
       <footer className="w-full border-t border-slate-200 bg-white py-6 mt-auto pb-24 md:pb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-slate-500">
-          &copy; {new Date().getFullYear()} Natación Chile Master. Plataforma de Datos Oficial.
+          &copy; {new Date().getFullYear()} SwimStats Chile. Plataforma de Datos No Oficial.
         </div>
       </footer>
 

@@ -1,8 +1,15 @@
-# Changelog Histórico (Natación Chile)
+﻿# Changelog Histórico (Natación Chile)
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
 ## Abril - Mayo 2026 (Consolidación de Pipeline FCHMN 2022-2026)
+
+
+### Documentación de producto y naming
+- Se adopta **SwimStats Chile** como nombre de producto para la presentación pública del monorepo. FCHMN queda documentado como fuente/dataset cuando corresponda, no como marca principal.
+- Se agrega `README.md` raíz como landing técnica del monorepo, con problema, arquitectura end-to-end, estructura, stack, estado actual, roadmap y disclaimer de datos.
+- La hoja de ruta versionada se mueve a `docs/plans/implementation_plan.md` para mantener la raíz orientada a producto sin usar `.atl/` como documentación pública.
+- `backend/README.md`, `frontend/README.md` y `frontend/docs/api_contracts.md` se alinean para explicar el flujo PostgreSQL/FastAPI/React y el estado transicional de contratos manuales hacia OpenAPI.
 
 ### Estado operativo vigente
 - Manifest local curado vigente para carga FCHMN 2022-2026:
@@ -82,7 +89,7 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
 - **0.1.20**: Lectura HY-TEK multicolumna por columna logica completa para preservar el contexto correcto de evento antes de avanzar a otra columna, evitando resultados asignados a pruebas/generos/edades incorrectos.
 
 ### Curaduría de Atletas y Alias de Clubes
-- Se automatizó la detección pre-load de errores OCR conocidos en nombres de atletas. 
+- Se automatizó la detección pre-load de errores OCR conocidos en nombres de atletas.
 - Canonización de orden de nombres (`Nombre Apellido` -> `Apellido, Nombre`).
 - Implementación de alias transitivos en `run_pipeline_results.py` (ej. `A -> B -> C` resuelve directo a `C`).
 - La curaduría de identidades ahora requiere comprobaciones rígidas: mismo `birth_year`, mismo club y mismo género antes de proponer alias automático. Otras variaciones cruzan hacia revisión manual (ej. nombres extendidos).

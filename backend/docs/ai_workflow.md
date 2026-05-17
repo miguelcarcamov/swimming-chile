@@ -1,11 +1,11 @@
-# Metodología de trabajo con IA
+﻿# Metodología de trabajo con IA
 
 Este documento permite retomar el proyecto en otra conversación sin depender del historial del chat. Resume la forma de trabajo acordada para Natación Chile.
 
 ## Fuentes de verdad
 
 - **Arquitectura y Uso**: `backend/README.md`
-- **Hoja de ruta**: `implementation_plan.md`
+- **Hoja de ruta**: `docs/plans/implementation_plan.md`
 - **Reglas operativas para agentes**: `AGENTS.md`
 - **Política de artefactos**: `backend/docs/data_artifacts.md`
 - **Contratos del parser**: `backend/docs/parser_contracts.md`
@@ -74,7 +74,7 @@ Si cambia el comportamiento o el contrato:
 Usar este texto al iniciar una nueva conversación:
 
 ```text
-Lee primero implementation_plan.md, backend/README.md, backend/docs/ai_workflow.md y AGENTS.md.
+Lee primero docs/plans/implementation_plan.md, backend/README.md, backend/docs/ai_workflow.md y AGENTS.md.
 Luego revisa git status y los scripts relevantes antes de proponer cambios.
 Continúa según la metodología acordada: diagnóstico, propuesta corta, patch mínimo, tests, git status y propuesta de commit.
 Si hay cambios locales del usuario, respétalos y trabaja alrededor de ellos.

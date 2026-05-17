@@ -1,4 +1,4 @@
-# Proyecto: Natación Chile - FCHMN
+# Proyecto: SwimStats Chile
 
 ## Rol de este archivo
 `AGENTS.md` contiene **reglas operativas estáticas y directivas** para agentes de IA que trabajan en este repositorio. Debe ser corto, imperativo y orientado a ejecución.
@@ -7,7 +7,7 @@ Para metodología de trabajo, estado actual a alto nivel y prompt sugerido, lee 
 Para decisiones históricas y versiones previas, lee `backend/docs/CHANGELOG.md`.
 
 ## Objetivo Principal
-Extraer resultados de competencias master desde PDFs de FCHMN, normalizarlos, curar su calidad (identidades) y cargarlos a PostgreSQL.
+Construir SwimStats Chile como plataforma de datos: extraer resultados de competencias master desde PDFs públicos, normalizarlos, curar su calidad (identidades) y cargarlos a PostgreSQL.
 
 ## Flujo Operativo (Separación de Responsabilidades)
 
