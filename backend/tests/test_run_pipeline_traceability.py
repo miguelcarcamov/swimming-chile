@@ -83,6 +83,35 @@ def test_normalize_dataframe_derives_valid_status_from_result_time():
     assert normalized.loc[0, "status"] == "valid"
 
 
+def test_normalize_dataframe_preserves_exhibition_times_as_valid_without_rank():
+    df = pd.DataFrame(
+        [
+            {
+                "event_name": "women 24 & Under 200 SC Meter freestyle",
+                "athlete_name": "Nadadora Uno",
+                "club_name": "Club A",
+                "rank_position": "1",
+                "seed_time_text": None,
+                "seed_time_ms": None,
+                "result_time_text": "X2:34,41",
+                "result_time_ms": "154410",
+                "age_at_event": "21",
+                "birth_year_estimated": "2005",
+                "points": None,
+                "status": "valid",
+                "source_id": "1",
+            }
+        ]
+    )
+
+    normalized = pipeline.normalize_dataframe(df, pipeline.EXPECTED_COLUMNS["result"], "result")
+
+    assert normalized.loc[0, "rank_position"] is None
+    assert normalized.loc[0, "result_time_text"] == "X2:34,41"
+    assert normalized.loc[0, "result_time_ms"] == "154410"
+    assert normalized.loc[0, "status"] == "valid"
+
+
 def test_default_club_alias_csv_contains_audited_fchmn_mappings():
     aliases = pipeline.load_club_aliases(str(pipeline.DEFAULT_CLUB_ALIAS_CSV))
 

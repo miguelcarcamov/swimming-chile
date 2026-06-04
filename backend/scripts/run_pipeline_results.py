@@ -451,11 +451,12 @@ def normalize_dataframe(df: pd.DataFrame, expected_columns: List[str], table_key
                 normalized_result_ms.append(ms_norm)
 
             if isinstance(tt, str) and tt.upper().startswith("X"):
+                # HY-TEK marks exhibition/non-scoring swims with X. Keep them unranked,
+                # but preserve valid timed performances instead of hiding them as unknown.
                 normalized_rank.append(None)
-                normalized_status.append("unknown")
             else:
                 normalized_rank.append(normalize_string(rk))
-                normalized_status.append(normalize_pipeline_result_status(st, tt))
+            normalized_status.append(normalize_pipeline_result_status(st, tt))
 
         df["seed_time_ms"] = normalized_seed_ms
         df["result_time_ms"] = normalized_result_ms
