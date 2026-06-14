@@ -37,6 +37,13 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
   `backend/data/raw/manifests/suda_src_2022_2026_p024_curated_reviewed_20260612.jsonl`;
   valida 5/5 con `competition_scope=sudamericano_master` y
   `governing_body_code=consada`.
+- Parser `0.1.25` corrige extracciones Sudamericanos antes de continuar la
+  curaduria pre-load: separa tiempos pegados al nombre de club en filas
+  Swim It Up/Recife cuando la columna de resultado viene vacia, y repara
+  `(cid:976)` como `f` tambien en nombres de club. El manifest curado
+  `backend/data/raw/manifests/suda_src_2022_2026_p025_curated_reviewed_20260614.jsonl`
+  valida 5/5 sin `--load`; las bandejas de alias/identidad deben regenerarse
+  desde esta materializacion y no desde `p024`.
 - La compuerta nueva expuso deuda historica en cinco PDFs 2022-2023 que antes
   pasaban por ratio global: SBDO 2023, Santiago Deporte 2023, Delfines 2022,
   LQBLO 2022 y Santiago Master 2022. Se reparsearon con `0.1.21`, recuperando
@@ -157,6 +164,9 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
 - **0.1.24**: Consolidacion Sudamericanos 2022-2026 desde la pagina fuente:
   normaliza `CI ...` como combinado individual, omite lineas auxiliares
   splits/records, acepta rank `--` y limpia `*` inicial en nombres HY-TEK.
+- **0.1.25**: Correccion de extraccion Sudamericanos/Swim It Up: separa
+  tiempos pegados a clubes cuando el resultado queda vacio y extiende la
+  limpieza `(cid:976)` -> `f` a nombres de club.
 
 ### Curaduría de Atletas y Alias de Clubes
 - Se automatizó la detección pre-load de errores OCR conocidos en nombres de atletas.

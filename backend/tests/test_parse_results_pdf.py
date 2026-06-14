@@ -311,6 +311,44 @@ def test_parse_brazil_result_row_from_columns():
     assert row.age_at_event is None
 
 
+def test_parse_brazil_result_row_splits_time_attached_to_club_cell():
+    ctx = parser.EventContext(
+        event_number=10,
+        gender="men",
+        age_group="50+",
+        distance_label="50",
+        distance_m=50,
+        course_code="SC",
+        stroke="freestyle",
+    )
+    words = [
+        {"text": "10Âº", "x0": 63, "top": 10},
+        {"text": "114785", "x0": 94, "top": 10},
+        {"text": "JUAN", "x0": 120, "top": 10},
+        {"text": "CARLOS", "x0": 150, "top": 10},
+        {"text": "DA", "x0": 190, "top": 10},
+        {"text": "SILVA", "x0": 210, "top": 10},
+        {"text": "YEGROS", "x0": 250, "top": 10},
+        {"text": "CLUB", "x0": 316, "top": 10},
+        {"text": "DEPORTIVO", "x0": 342, "top": 10},
+        {"text": "DA", "x0": 382, "top": 10},
+        {"text": "SILVA32.47", "x0": 395, "top": 10},
+        {"text": "0,00", "x0": 451, "top": 10},
+    ]
+
+    row = parser.parse_brazil_result_row(words, ctx, page_number=38, line_number=86)
+
+    assert row is not None
+    assert row.club_name == "CLUB DEPORTIVO DA SILVA"
+    assert row.result_time_text == "32,47"
+    assert row.result_time_ms == "32470"
+    assert row.status == "valid"
+
+
+def test_clean_extracted_text_repairs_cid_976_in_club_names():
+    assert parser.clean_extracted_text("Del(cid:976)ines LC") == "Delfines LC"
+
+
 def test_parse_individual_result_line_with_seed_fixture():
     fixture = load_fixture("individual_with_seed")
     row = parser.parse_result_line(

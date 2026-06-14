@@ -29,7 +29,7 @@ from natacion_chile.domain.normalization import (
     normalize_swim_time_text,
 )
 
-PARSER_VERSION = "0.1.24"
+PARSER_VERSION = "0.1.25"
 
 try:
     import pdfplumber
@@ -294,6 +294,7 @@ def clean_extracted_text(value: str | None) -> str | None:
         "N(cid:450) u": "Ñu",
         "n(cid:450) i": "ñi",
         "n(cid:450) u": "ñu",
+        "(cid:976)": "f",
         "Ñ u": "Ñu",
         "ñ u": "ñu",
         "Ñ a": "Ña",
@@ -1484,11 +1485,37 @@ def row_words_between(words: List[dict], left: float, right: float) -> List[dict
     return [word for word in words if left <= float(word["x0"]) < right]
 
 
+def split_attached_brazil_result_time(club_name: str, result_raw: Optional[str]) -> Tuple[str, Optional[str]]:
+    if result_raw or not club_name:
+        return club_name, result_raw
+    # Swim It Up PDFs can glue the result time to the club cell when the club
+    # text reaches the result column, e.g. "CLUB DEPORTIVO DA SILVA32.47".
+    match = re.match(
+        r"^(?P<club>.+?)(?P<time>\d{1,2}:\d{2}(?:[\.,]\d+)?|\d{1,3}[\.,]\d{2})$",
+        club_name,
+    )
+    if not match:
+        return club_name, result_raw
+    normalized_time = normalize_swim_time_text(match.group("time"))
+    if derive_result_time_ms(normalized_time) is None:
+        return club_name, result_raw
+    return (clean_extracted_text(match.group("club")) or match.group("club").strip()), normalized_time
+
+
+def normalize_brazil_rank_marker(value: str | None) -> str:
+    return (value or "").replace("Â", "").strip()
+
+
+def is_brazil_rank_marker(value: str | None) -> bool:
+    return bool(re.fullmatch(r"\d+(?:º|°)|---|N/C", normalize_brazil_rank_marker(value), re.IGNORECASE))
+
+
 def parse_brazil_result_row(words: List[dict], ctx: EventContext, page_number: int, line_number: int) -> Optional[ParsedResultRow]:
     if not words or ctx.is_relay:
         return None
     rank_raw = str(words[0].get("text", ""))
-    if not re.fullmatch(r"\d+º|---|N/C", rank_raw, re.IGNORECASE):
+    rank_marker = normalize_brazil_rank_marker(rank_raw)
+    if not is_brazil_rank_marker(rank_raw):
         return None
     if len(words) < 3 or not re.fullmatch(r"\d+", str(words[1].get("text", ""))):
         return None
@@ -1496,6 +1523,7 @@ def parse_brazil_result_row(words: List[dict], ctx: EventContext, page_number: i
     athlete_name = clean_athlete_name(words_to_text(row_words_between(words, 120, 316)))
     club_name = words_to_text(row_words_between(words, 316, 412))
     result_raw = words_to_text(row_words_between(words, 412, 450)) or None
+    club_name, result_raw = split_attached_brazil_result_time(club_name, result_raw)
     points_raw = words_to_text(row_words_between(words, 450, 472)) or None
     if not athlete_name or not club_name:
         return None
@@ -1503,7 +1531,7 @@ def parse_brazil_result_row(words: List[dict], ctx: EventContext, page_number: i
     normalized_result = normalize_swim_time_text(result_raw)
     result_time_ms = derive_result_time_ms(normalized_result)
     status = "valid" if result_time_ms is not None else normalize_result_status(None, normalized_result)
-    rank_position = None if rank_raw in {"---", "N/C"} else rank_raw.rstrip("º")
+    rank_position = None if rank_marker in {"---", "N/C"} else re.sub(r"(?:º|°)$", "", rank_marker)
     return ParsedResultRow(
         page_number=page_number,
         line_number=line_number,
@@ -1528,7 +1556,8 @@ def parse_brazil_relay_team_row(words: List[dict], ctx: EventContext, page_numbe
     if not words or not ctx.is_relay:
         return None
     rank_raw = str(words[0].get("text", ""))
-    if not re.fullmatch(r"\d+º|---|N/C", rank_raw, re.IGNORECASE):
+    rank_marker = normalize_brazil_rank_marker(rank_raw)
+    if not is_brazil_rank_marker(rank_raw):
         return None
 
     team_words = row_words_between(words, 120, 316)
@@ -1545,7 +1574,7 @@ def parse_brazil_relay_team_row(words: List[dict], ctx: EventContext, page_numbe
     normalized_result = normalize_swim_time_text(result_raw)
     result_time_ms = derive_result_time_ms(normalized_result)
     status = "valid" if result_time_ms is not None else normalize_result_status(None, normalized_result)
-    rank_position = None if rank_raw in {"---", "N/C"} else rank_raw.rstrip("º")
+    rank_position = None if rank_marker in {"---", "N/C"} else re.sub(r"(?:º|°)$", "", rank_marker)
     return ParsedRelayTeamRow(
         page_number=page_number,
         line_number=line_number,

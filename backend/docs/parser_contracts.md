@@ -84,6 +84,11 @@ Tambien puede generar archivos de trazabilidad/debug:
   `CI Piscina ...` / `CI Mayores ...` como `individual_medley`, acepta filas
   no rankeadas con `--`, limpia `*` inicial de nombres HY-TEK y omite lineas
   auxiliares de parciales o records que no son resultados.
+- Desde parser `0.1.25`, en layouts Sudamericanos/Swim It Up se separan de
+  forma conservadora los tiempos que llegan pegados al nombre de club cuando la
+  columna de resultado viene vacia. Tambien se repara `(cid:976)` como `f` en
+  texto extraido general, para que clubes como `Del(cid:976)ines` se materialicen
+  como `Delfines` antes de las auditorias pre-load.
 - El parser puede omitir parciales/splits de carrera en `debug_unparsed_lines.csv` cuando no son filas de resultado; esto evita bloquear la validacion por lineas auxiliares de HY-TEK.
 - Si una fila con resultado tipo status deja el tiempo de seed pegado al club, por ejemplo `Club Sparta A C 49.33 DQ DQ`, el parser debe separar `club_name = Club Sparta A C`, `seed_time_text = 49,33` y `result_time_text = DQ`.
 - Ningun resultado `valid` individual o de relevo debe materializarse con
