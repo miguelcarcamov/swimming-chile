@@ -44,6 +44,13 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
   `backend/data/raw/manifests/suda_src_2022_2026_p025_curated_reviewed_20260614.jsonl`
   valida 5/5 sin `--load`; las bandejas de alias/identidad deben regenerarse
   desde esta materializacion y no desde `p024`.
+- Parser `0.1.26` evita que el layout Swim It Up/Recife emita integrantes de
+  relevo con `leg_order` mayor a 4, y el batch runner bloquea esos residuos
+  antes de llegar a la restriccion de PostgreSQL. La carga Sudamericanos debe
+  ejecutarse con `--required-competition-scope sudamericano_master`.
+- El loader castea explicitamente a `text` los parametros opcionales de
+  metadata de competencia para evitar errores de inferencia de tipo en
+  PostgreSQL al actualizar `competition_scope` y `governing_body_*`.
 - La compuerta nueva expuso deuda historica en cinco PDFs 2022-2023 que antes
   pasaban por ratio global: SBDO 2023, Santiago Deporte 2023, Delfines 2022,
   LQBLO 2022 y Santiago Master 2022. Se reparsearon con `0.1.21`, recuperando
@@ -167,6 +174,8 @@ Este documento condensa los hitos y auditorías relevantes durante el desarrollo
 - **0.1.25**: Correccion de extraccion Sudamericanos/Swim It Up: separa
   tiempos pegados a clubes cuando el resultado queda vacio y extiende la
   limpieza `(cid:976)` -> `f` a nombres de club.
+- **0.1.26**: Correccion de relevos Sudamericanos/Swim It Up: no emite postas
+  fuera de `leg_order` 1..4 y agrega compuerta pre-load equivalente.
 
 ### Curaduría de Atletas y Alias de Clubes
 - Se automatizó la detección pre-load de errores OCR conocidos en nombres de atletas.

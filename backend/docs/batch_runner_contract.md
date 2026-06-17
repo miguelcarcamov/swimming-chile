@@ -180,6 +180,9 @@ Bloquean la carga y dejan el lote en `requires_review`:
 - `relay_team.csv` o `relay_swimmer.csv` traen filas duplicadas exactas de
   relevos. Esto bloquea la carga porque puede producir equipos con integrantes
   repetidos en `core.relay_result_member`.
+- `relay_swimmer.csv` trae `leg_order` vacio o fuera del rango 1..4. Esto
+  bloquea la carga antes de PostgreSQL porque `core.relay_result_member` solo
+  admite cuatro postas por relevo.
 - Se intenta cargar con `--load` sin `competition_scope=fchmn_local` o sin el
   scope requerido por `--required-competition-scope`.
 

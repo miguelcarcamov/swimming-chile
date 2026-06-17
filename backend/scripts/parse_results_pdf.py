@@ -29,7 +29,7 @@ from natacion_chile.domain.normalization import (
     normalize_swim_time_text,
 )
 
-PARSER_VERSION = "0.1.25"
+PARSER_VERSION = "0.1.26"
 
 try:
     import pdfplumber

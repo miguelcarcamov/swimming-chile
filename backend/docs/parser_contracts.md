@@ -89,6 +89,10 @@ Tambien puede generar archivos de trazabilidad/debug:
   columna de resultado viene vacia. Tambien se repara `(cid:976)` como `f` en
   texto extraido general, para que clubes como `Del(cid:976)ines` se materialicen
   como `Delfines` antes de las auditorias pre-load.
+- Desde parser `0.1.26`, los layouts Sudamericanos/Swim It Up no deben emitir
+  nadadores de relevo con `leg_order` fuera de 1..4. Las lineas posteriores al
+  cuarto integrante, incluidos pies de pagina o nombres arrastrados por layout,
+  no son postas cargables.
 - El parser puede omitir parciales/splits de carrera en `debug_unparsed_lines.csv` cuando no son filas de resultado; esto evita bloquear la validacion por lineas auxiliares de HY-TEK.
 - Si una fila con resultado tipo status deja el tiempo de seed pegado al club, por ejemplo `Club Sparta A C 49.33 DQ DQ`, el parser debe separar `club_name = Club Sparta A C`, `seed_time_text = 49,33` y `result_time_text = DQ`.
 - Ningun resultado `valid` individual o de relevo debe materializarse con
