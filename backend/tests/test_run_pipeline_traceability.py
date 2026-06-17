@@ -396,6 +396,57 @@ def test_relay_member_insert_uses_relay_result_disambiguation_fields():
     assert "rr.result_time_ms" in sql
     assert "rr.rank_position" in sql
 
+
+def test_planned_competition_lookup_ignores_failed_load_runs_only():
+    class Cursor:
+        def __init__(self):
+            self.statements = []
+            self.fetchone_calls = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, statement, params=None):
+            self.statements.append((statement, params))
+
+        def fetchone(self):
+            self.fetchone_calls += 1
+            if self.fetchone_calls == 1:
+                return None
+            return [4]
+
+        def fetchall(self):
+            return [(4, "XIV Campeonato Sudamericano Master y Premaster")]
+
+    class Conn:
+        def __init__(self):
+            self.cursor_instance = Cursor()
+        def cursor(self):
+            return self.cursor_instance
+        def commit(self):
+            pass
+
+    conn = Conn()
+    config = argparse.Namespace(schema="core", competition_id=None, default_source_id=1)
+    args = argparse.Namespace(
+        competition_name="XIV Campeonato Sudamericano Master y Premaster",
+        competition_year="2026",
+        competition_scope="sudamericano_master",
+        governing_body_code="consada",
+        governing_body_name="CONSADA",
+        competition_source_url="https://example.test/results.pdf",
+    )
+    metadata = {"competition_start_date": "2026-04-13", "competition_end_date": "2026-04-17"}
+    data = {"event": pd.DataFrame([{"event_name": "women 25-29 50 SC Meter freestyle"}])}
+
+    assert pipeline.resolve_competition_id(conn, config, args, data, metadata) == 4
+    planned_sql = conn.cursor_instance.statements[1][0]
+    assert "lr.status <> 'failed'" in planned_sql
+
+
 def test_expected_points_case_uses_fchmn_scoring_rules():
     individual_sql = pipeline.expected_points_case_sql("rank_position", relay=False)
     relay_sql = pipeline.expected_points_case_sql("rank_position", relay=True)

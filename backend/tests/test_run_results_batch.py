@@ -178,6 +178,24 @@ def test_validate_input_dir_requires_review_for_invalid_relay_leg_order():
     assert any(issue.issue_key == "invalid_relay_swimmer_leg_order" for issue in result.issues)
 
 
+def test_validate_input_dir_requires_review_for_known_adaip_line_wrap_residue():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_adaip_line_wrap_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "relay_team.csv").write_text(
+            "event_name,club_name,relay_team_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,points,status,source_id,page_number,line_number\n"
+            'men 120+ 4x50 SC Meter freestyle_relay,INTERIORADAIP,ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO,6,,,"1:52,04",112040,"0,00",valid,1,147,73\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    assert result.state == "requires_review"
+    assert any(issue.issue_key == "relay_team_known_line_wrap_residue" for issue in result.issues)
+
+
 def test_validate_input_dir_requires_review_for_implausibly_short_seed_time():
     input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_seed_quality_{uuid.uuid4().hex}"
     try:

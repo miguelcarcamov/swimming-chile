@@ -369,6 +369,36 @@ def test_parse_brazil_relay_swimmer_row_rejects_extra_legs():
     assert row is None
 
 
+def test_parse_brazil_relay_team_row_repairs_adaip_line_wrap():
+    ctx = parser.EventContext(
+        event_number=35,
+        gender="men",
+        age_group="120+",
+        distance_label="4x50",
+        distance_m=200,
+        course_code="SC",
+        stroke="freestyle_relay",
+    )
+    words = [
+        {"text": "6Âº", "x0": 63, "top": 10},
+        {"text": "ASSOCIAÇÃO", "x0": 125, "top": 10},
+        {"text": "DE", "x0": 175, "top": 10},
+        {"text": "DESPORTOS", "x0": 195, "top": 10},
+        {"text": "AQUÁTICOS", "x0": 245, "top": 10},
+        {"text": "DO", "x0": 298, "top": 10},
+        {"text": "INTERIORADAIP", "x0": 316, "top": 10},
+        {"text": "1:52.04", "x0": 414, "top": 10},
+        {"text": "0,00", "x0": 451, "top": 10},
+    ]
+
+    row = parser.parse_brazil_relay_team_row(words, ctx, page_number=147, line_number=73)
+
+    assert row is not None
+    assert row.club_name == "ADAIP"
+    assert row.relay_team_name == 'ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO INTERIOR DE PE "A"'
+    assert row.result_time_ms == "112040"
+
+
 def test_clean_extracted_text_repairs_cid_976_in_club_names():
     assert parser.clean_extracted_text("Del(cid:976)ines LC") == "Delfines LC"
 

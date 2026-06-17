@@ -307,7 +307,7 @@ Pipeline:
 - Aplica `club_alias.csv` colapsando cadenas transitivas de aliases antes de
   cargar. Si existe `A -> B -> C`, `A` y `B` deben resolver al canonical final
   `C`, no a un canonical intermedio.
-- Al transformar `relay_team.csv` + `relay_swimmer.csv`, usa `relay_team.club_name` cuando venga informado y conserva la inferencia desde `club.csv` solo como fallback compatible. Si una fuente repite el mismo `event_name` + `club_name` + `relay_team_name`, conserva `relay_rank_position` y `relay_result_time_ms` en staging para enlazar cada integrante al resultado de relevo correcto.
+- Al transformar `relay_team.csv` + `relay_swimmer.csv`, usa `relay_team.club_name` cuando venga informado y conserva la inferencia desde `club.csv` solo como fallback compatible. Si una fuente repite el mismo `event_name` + `club_name` + `relay_team_name`, conserva `relay_rank_position` y `relay_result_time_ms` en staging para enlazar cada integrante al resultado de relevo correcto. El batch no debe crear clubes genéricos desde relevos: los cortes de línea conocidos, como ADAIP en Sudamericano 2026, se corrigen antes en la materialización curada.
 - Deduplica atletas dentro de cada carga por nombre normalizado, genero, año de
   nacimiento y club observado para evitar variantes OCR/acento equivalentes en
   un mismo `INSERT`.

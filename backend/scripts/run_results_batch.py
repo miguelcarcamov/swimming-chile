@@ -655,6 +655,23 @@ def validate_relay_duplicate_quality(data: dict[str, list[dict[str, str]]], issu
             )
 
 
+def validate_known_relay_line_wrap_residue(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+    bad_adaip_rows = sum(
+        1
+        for row in data.get("relay_team", [])
+        if (row.get("club_name") or "").strip().lower() == "interioradaip"
+    )
+    if bad_adaip_rows:
+        issues.append(
+            BatchIssue(
+                "error",
+                "relay_team_known_line_wrap_residue",
+                "relay_team.csv conserva un corte de linea conocido: INTERIORADAIP debe corregirse a ADAIP antes de cargar.",
+                bad_adaip_rows,
+            )
+        )
+
+
 def validate_debug_ratio(input_dir: Path, parsed_rows: int, threshold: float, counts: dict[str, int], issues: list[BatchIssue]) -> None:
     debug_path = input_dir / "debug_unparsed_lines.csv"
     if not debug_path.exists():
@@ -738,6 +755,7 @@ def validate_input_dir(input_dir: Path, debug_threshold: float = DEFAULT_DEBUG_T
     validate_result_event_consistency(data, issues)
     validate_points_quality(data, issues)
     validate_relay_duplicate_quality(data, issues)
+    validate_known_relay_line_wrap_residue(data, issues)
     validate_debug_ratio(input_dir, parsed_result_rows, debug_threshold, counts, issues)
 
     state = "requires_review" if any(issue.severity == "error" for issue in issues) else "validated"

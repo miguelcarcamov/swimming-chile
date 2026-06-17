@@ -2,12 +2,13 @@
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
-## 2026-06-17 - Fix pre-load Sudamericanos replay blockers
+## 2026-06-17 - Corrección de bloqueos pre-load Sudamericanos
 
-- `run_pipeline_results.py` now reuses empty calendar competitions with status `planned` or `finished` when scope/body/date/year/name are compatible, avoiding a duplicate competition when official results arrive after calendar metadata was synced.
-- Sudamericanos identity decisions with age-range evidence now materialize reviewed names into `result.csv` rows without inventing exact birth years.
-- Relay member staging now carries relay rank/time disambiguators so repeated same-team relay rows do not cross-link swimmers into 8-member relays.
-- Added migration `backend/sql/migrations/006_relay_member_match_fields.sql` for the new staging fields.
+- `run_pipeline_results.py` reutiliza competencias calendario vacías con estado `planned` o `finished` cuando scope, organismo, fecha, año y nombre son compatibles, evitando duplicar competencias cuando llegan resultados oficiales después de sincronizar el calendario.
+- Las decisiones de identidad de Sudamericanos con evidencia de rango de edad materializan nombres revisados en `result.csv` sin inventar años exactos de nacimiento.
+- El staging de integrantes de relevos conserva desambiguadores de posición/tiempo para que filas repetidas del mismo equipo no crucen nadadores y generen relevos de 8 integrantes.
+- Se agrega la migración `backend/sql/migrations/006_relay_member_match_fields.sql` para los nuevos campos de staging.
+- Las competencias calendario vacías siguen siendo reutilizables después de intentos de carga fallidos, y el caso conocido de corte de línea ADAIP se corrige durante la materialización curada en vez de crear el club inválido `INTERIORADAIP`.
 
 ## Abril - Mayo 2026 (Consolidación de Pipeline FCHMN 2022-2026)
 

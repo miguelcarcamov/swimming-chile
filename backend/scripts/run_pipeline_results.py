@@ -847,6 +847,7 @@ def resolve_competition_id(conn, config: Config, args: argparse.Namespace, data:
                   AND NOT EXISTS (
                       SELECT 1 FROM {fqtn(config.schema, 'load_run')} lr
                       WHERE lr.competition_id = c.id
+                        AND lr.status <> 'failed'
                   )
                   AND NOT EXISTS (
                       SELECT 1

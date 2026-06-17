@@ -1283,6 +1283,71 @@ def apply_result_event_corrections(result_df, source_url: str, rules: dict) -> T
 
 
 
+
+# Corrección curada para un corte de línea del Sudamericano 2026:
+# el parser separa "INTERIOR DE PE" como club, pero el equipo real es ADAIP.
+ADAIP_RELAY_TEAM_NAME = 'ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO INTERIOR DE PE "A"'
+ADAIP_RELAY_CLUB_NAME = "ADAIP"
+
+
+def apply_adaip_relay_line_wrap_correction(output_dir: Path) -> int:
+    relay_team_path = output_dir / "relay_team.csv"
+    relay_swimmer_path = output_dir / "relay_swimmer.csv"
+    club_path = output_dir / "club.csv"
+    if not relay_team_path.exists():
+        return 0
+    relay_team_df = read_csv_if_exists(relay_team_path)
+    if relay_team_df.empty or not {"club_name", "relay_team_name", "event_name", "page_number", "line_number"}.issubset(relay_team_df.columns):
+        return 0
+
+    team_mask = (
+        relay_team_df["club_name"].map(normalize_match_text).eq("interioradaip")
+        & relay_team_df["relay_team_name"].map(normalize_match_text).eq("associacao de desportos aquaticos do")
+    )
+    if not team_mask.any():
+        return 0
+
+    corrected = int(team_mask.sum())
+    team_rows = relay_team_df.loc[team_mask, ["event_name", "page_number", "line_number"]].copy()
+    relay_team_df.loc[team_mask, "club_name"] = ADAIP_RELAY_CLUB_NAME
+    relay_team_df.loc[team_mask, "relay_team_name"] = ADAIP_RELAY_TEAM_NAME
+    relay_team_df.to_csv(relay_team_path, index=False, encoding="utf-8-sig")
+
+    if relay_swimmer_path.exists():
+        relay_swimmer_df = read_csv_if_exists(relay_swimmer_path)
+        required = {"event_name", "relay_team_name", "page_number", "line_number"}
+        if not relay_swimmer_df.empty and required.issubset(relay_swimmer_df.columns):
+            swimmer_line = pd.to_numeric(relay_swimmer_df["line_number"], errors="coerce")
+            for _, team_row in team_rows.iterrows():
+                team_line = pd.to_numeric(pd.Series([team_row.get("line_number")]), errors="coerce").iloc[0]
+                if pd.isna(team_line):
+                    continue
+                swimmer_mask = (
+                    relay_swimmer_df["event_name"].eq(team_row.get("event_name"))
+                    & relay_swimmer_df["page_number"].astype(str).eq(str(team_row.get("page_number")))
+                    & relay_swimmer_df["relay_team_name"].map(normalize_match_text).eq("associacao de desportos aquaticos do")
+                    & swimmer_line.gt(team_line)
+                    & swimmer_line.le(team_line + 8)
+                )
+                relay_swimmer_df.loc[swimmer_mask, "relay_team_name"] = ADAIP_RELAY_TEAM_NAME
+            relay_swimmer_df.to_csv(relay_swimmer_path, index=False, encoding="utf-8-sig")
+
+    if club_path.exists():
+        club_df = read_csv_if_exists(club_path)
+        if "name" in club_df.columns and not club_df["name"].map(normalize_match_text).eq("adaip").any():
+            source_id = "1"
+            if "source_id" in club_df.columns and not club_df.empty:
+                source_id = clean_extracted_text(club_df["source_id"].dropna().astype(str).iloc[0]) or "1"
+            club_df.loc[len(club_df)] = {
+                "name": ADAIP_RELAY_CLUB_NAME,
+                "short_name": None,
+                "city": None,
+                "region": None,
+                "source_id": source_id,
+            }
+            club_df.to_csv(club_path, index=False, encoding="utf-8-sig")
+    return corrected
+
 def drop_invalid_relay_swimmer_leg_order(relay_swimmer_df) -> Tuple[object, int]:
     if relay_swimmer_df.empty or "leg_order" not in relay_swimmer_df.columns:
         return relay_swimmer_df, 0
@@ -1607,6 +1672,10 @@ def materialize_document_inputs(
             counts[f"{table_name}_{key}"] += value
         curated_tables[table_name] = (csv_path, curated_df)
         curated_df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+
+    adaip_fixed = apply_adaip_relay_line_wrap_correction(output_dir)
+    if adaip_fixed:
+        counts["adaip_relay_line_wrap_corrections"] += adaip_fixed
 
     if "athlete" in curated_tables and "result" in curated_tables:
         result_path, result_df = curated_tables["result"]

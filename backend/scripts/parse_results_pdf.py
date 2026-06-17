@@ -1570,6 +1570,15 @@ def parse_brazil_relay_team_row(words: List[dict], ctx: EventContext, page_numbe
     points_raw = words_to_text(row_words_between(words, 450, 472)) or None
     if not relay_team_name or not club_name:
         return None
+    # Sudamericano 2026 / layout brasileño: un nombre largo puede invadir la
+    # columna del club y quedar como "INTERIORADAIP". En ese caso el club real
+    # es ADAIP y "INTERIOR DE PE" pertenece al nombre del equipo.
+    if (
+        normalize_match_text(relay_team_name) == "associacao de desportos aquaticos do"
+        and normalize_match_text(club_name) == "interioradaip"
+    ):
+        relay_team_name = 'ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO INTERIOR DE PE "A"'
+        club_name = "ADAIP"
 
     normalized_result = normalize_swim_time_text(result_raw)
     result_time_ms = derive_result_time_ms(normalized_result)

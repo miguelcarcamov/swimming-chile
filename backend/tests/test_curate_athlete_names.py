@@ -448,6 +448,53 @@ def test_fuzzy_identity_rules_apply_by_birth_year_and_gender_without_club_lock()
 
 
 
+
+def test_apply_adaip_relay_line_wrap_correction_updates_team_swimmers_and_club():
+    tmp_dir = _workspace_tmp_dir()
+    try:
+        pd.DataFrame(
+            [{"name": "ANMPE", "short_name": None, "city": None, "region": None, "source_id": "1"}]
+        ).to_csv(tmp_dir / "club.csv", index=False)
+        pd.DataFrame(
+            [
+                {
+                    "event_name": "men 120+ 4x50 SC Meter freestyle_relay",
+                    "club_name": "INTERIORADAIP",
+                    "relay_team_name": "ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO",
+                    "rank_position": "6",
+                    "seed_time_text": None,
+                    "seed_time_ms": None,
+                    "result_time_text": "1:52,04",
+                    "result_time_ms": "112040",
+                    "points": "0,00",
+                    "status": "valid",
+                    "source_id": "1",
+                    "page_number": "147",
+                    "line_number": "73",
+                }
+            ]
+        ).to_csv(tmp_dir / "relay_team.csv", index=False)
+        pd.DataFrame(
+            [
+                {"event_name": "men 120+ 4x50 SC Meter freestyle_relay", "relay_team_name": "ASSOCIAÇÃO DE DESPORTOS AQUÁTICOS DO", "leg_order": "1", "swimmer_name": "Uno", "gender": None, "age_at_event": None, "birth_year_estimated": None, "page_number": "147", "line_number": "77"},
+                {"event_name": "men 120+ 4x50 SC Meter freestyle_relay", "relay_team_name": "ASSOCIAÇÃO DOS NADADORES MASTERS DE", "leg_order": "1", "swimmer_name": "Otro", "gender": None, "age_at_event": None, "birth_year_estimated": None, "page_number": "147", "line_number": "48"},
+            ]
+        ).to_csv(tmp_dir / "relay_swimmer.csv", index=False)
+
+        corrected = curate.apply_adaip_relay_line_wrap_correction(tmp_dir)
+        relay_team = pd.read_csv(tmp_dir / "relay_team.csv", dtype=str, encoding="utf-8-sig")
+        relay_swimmer = pd.read_csv(tmp_dir / "relay_swimmer.csv", dtype=str, encoding="utf-8-sig")
+        club = pd.read_csv(tmp_dir / "club.csv", dtype=str, encoding="utf-8-sig")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    assert corrected == 1
+    assert relay_team.loc[0, "club_name"] == "ADAIP"
+    assert relay_team.loc[0, "relay_team_name"] == curate.ADAIP_RELAY_TEAM_NAME
+    assert relay_swimmer.loc[0, "relay_team_name"] == curate.ADAIP_RELAY_TEAM_NAME
+    assert relay_swimmer.loc[1, "relay_team_name"] == "ASSOCIAÇÃO DOS NADADORES MASTERS DE"
+    assert "ADAIP" in club["name"].tolist()
+
 def test_drop_invalid_relay_swimmer_leg_order_removes_non_swimmer_rows():
     df = pd.DataFrame(
         [
