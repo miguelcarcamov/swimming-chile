@@ -160,6 +160,24 @@ def test_validate_input_dir_requires_review_for_duplicate_relay_rows():
     assert "relay_swimmer_duplicate_rows" in issue_keys
 
 
+def test_validate_input_dir_requires_review_for_invalid_relay_leg_order():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_relay_leg_order_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "relay_swimmer.csv").write_text(
+            "event_name,relay_team_name,leg_order,swimmer_name,gender,age_at_event,birth_year_estimated,page_number,line_number\n"
+            'mixed 120-159 200 SC Meter freestyle_relay,Club A,5,"Sturion, Carla Stein",female,,,125,7\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    assert result.state == "requires_review"
+    assert any(issue.issue_key == "invalid_relay_swimmer_leg_order" for issue in result.issues)
+
+
 def test_validate_input_dir_requires_review_for_implausibly_short_seed_time():
     input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_seed_quality_{uuid.uuid4().hex}"
     try:

@@ -345,6 +345,30 @@ def test_parse_brazil_result_row_splits_time_attached_to_club_cell():
     assert row.status == "valid"
 
 
+def test_parse_brazil_relay_swimmer_row_rejects_extra_legs():
+    ctx = parser.with_event_age_group(
+        parser.parse_brazil_event_header("35ª PROVA - REVEZAMENTO 4X50 METROS LIVRE MISTO (17/04/2026)"),
+        "160+",
+    )
+    words = [
+        {"text": "106557", "x0": 64, "x1": 105, "top": 10},
+        {"text": "CARLA", "x0": 125, "x1": 160, "top": 10},
+        {"text": "STEIN", "x0": 165, "x1": 200, "top": 10},
+        {"text": "STURION", "x0": 205, "x1": 270, "top": 10},
+    ]
+
+    row = parser.parse_brazil_relay_swimmer_row(
+        words,
+        ctx,
+        page_number=125,
+        line_number=7,
+        relay_team_name='TNT MASTERS SP "A"',
+        leg_order=5,
+    )
+
+    assert row is None
+
+
 def test_clean_extracted_text_repairs_cid_976_in_club_names():
     assert parser.clean_extracted_text("Del(cid:976)ines LC") == "Delfines LC"
 

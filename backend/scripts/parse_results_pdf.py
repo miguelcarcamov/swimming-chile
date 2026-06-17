@@ -1596,6 +1596,10 @@ def parse_brazil_relay_team_row(words: List[dict], ctx: EventContext, page_numbe
 def parse_brazil_relay_swimmer_row(words: List[dict], ctx: EventContext, page_number: int, line_number: int, relay_team_name: Optional[str], leg_order: int) -> Optional[ParsedRelaySwimmerRow]:
     if not words or not ctx.is_relay or relay_team_name is None:
         return None
+    # Los layouts brasileños pueden dejar nombres/pies de página debajo del equipo;
+    # no deben emitirse como postas extra porque core solo admite relevos 4x.
+    if leg_order < 1 or leg_order > 4:
+        return None
     if len(words) < 2 or not re.fullmatch(r"\d+", str(words[0].get("text", ""))):
         return None
     swimmer_name = words_to_text(row_words_between(words, 120, 316))

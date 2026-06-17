@@ -360,6 +360,24 @@ def validate_required_identities(data: dict[str, list[dict[str, str]]], issues: 
         issues.append(BatchIssue("error", "relay_missing_identity", "Hay relevos sin event_name o relay_team_name.", relay_missing))
 
 
+def validate_relay_swimmer_leg_order(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+    invalid = 0
+    for row in data.get("relay_swimmer", []):
+        leg_order = parse_int_or_none(row.get("leg_order"))
+        # core.relay_result_member solo admite postas 1..4; detectarlo aca evita fallos tardios en PostgreSQL.
+        if leg_order is None or leg_order < 1 or leg_order > 4:
+            invalid += 1
+    if invalid:
+        issues.append(
+            BatchIssue(
+                "error",
+                "invalid_relay_swimmer_leg_order",
+                "relay_swimmer.csv tiene leg_order fuera del rango permitido 1..4.",
+                invalid,
+            )
+        )
+
+
 def has_vowel_plus_accented_vowel_residue(name: str) -> bool:
     for match in VOWEL_PLUS_ACCENTED_VOWEL_RE.finditer(name):
         if match.group(0) in {"iá", "IÁ"}:
@@ -714,6 +732,7 @@ def validate_input_dir(input_dir: Path, debug_threshold: float = DEFAULT_DEBUG_T
 
     validate_canons(data, issues)
     validate_required_identities(data, issues)
+    validate_relay_swimmer_leg_order(data, issues)
     validate_athlete_name_quality(data, issues)
     validate_result_time_quality(data, issues)
     validate_result_event_consistency(data, issues)
