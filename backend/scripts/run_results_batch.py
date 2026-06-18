@@ -48,6 +48,8 @@ UNPARSED_RELAY_EVENT_HEADER_RE = re.compile(
     re.IGNORECASE,
 )
 EVENT_AGE_GROUP_RE = re.compile(r"\b(?:women|men)\s+(\d{1,3})-(\d{1,3})\b", re.IGNORECASE)
+ATHLETE_BOUNDARY_RESIDUE_RE = re.compile(r"[()]|(?:^|[\s,])-|-(?:$|[\s,])")
+CLUB_LEADING_BOUNDARY_RESIDUE_RE = re.compile(r"^\s*[-(]")
 
 DEFAULT_DEBUG_THRESHOLD = 0.20
 DEFAULT_REQUIRED_COMPETITION_SCOPE = "fchmn_local"
@@ -440,6 +442,60 @@ def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues:
             )
 
 
+def validate_identity_boundary_quality(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+    specs = [
+        ("athlete", "full_name", "club_name"),
+        ("result", "athlete_name", "club_name"),
+    ]
+    for table_key, athlete_column, club_column in specs:
+        rows = data.get(table_key, [])
+        if not rows:
+            continue
+
+        athlete_residue = 0
+        club_residue = 0
+        boundary_residue = 0
+        for row in rows:
+            athlete_name = (row.get(athlete_column) or "").strip()
+            club_name = (row.get(club_column) or "").strip()
+            has_athlete_residue = bool(athlete_name and ATHLETE_BOUNDARY_RESIDUE_RE.search(athlete_name))
+            has_club_residue = bool(club_name and CLUB_LEADING_BOUNDARY_RESIDUE_RE.search(club_name))
+            if has_athlete_residue:
+                athlete_residue += 1
+            if has_club_residue:
+                club_residue += 1
+            if has_athlete_residue or has_club_residue:
+                boundary_residue += 1
+
+        if athlete_residue:
+            issues.append(
+                BatchIssue(
+                    "error",
+                    f"{table_key}_athlete_boundary_residue",
+                    f"{table_key}.csv tiene nombres de atleta con residuos estructurales de solapamiento.",
+                    athlete_residue,
+                )
+            )
+        if club_residue:
+            issues.append(
+                BatchIssue(
+                    "error",
+                    f"{table_key}_club_boundary_residue",
+                    f"{table_key}.csv tiene nombres de club con residuos estructurales de solapamiento.",
+                    club_residue,
+                )
+            )
+        if boundary_residue:
+            issues.append(
+                BatchIssue(
+                    "error",
+                    f"{table_key}_identity_boundary_residue",
+                    f"{table_key}.csv tiene posible contaminacion entre nombre de atleta y club.",
+                    boundary_residue,
+                )
+            )
+
+
 def parse_int_or_none(value: str | None) -> int | None:
     cleaned = (value or "").strip()
     if not cleaned:
@@ -751,6 +807,7 @@ def validate_input_dir(input_dir: Path, debug_threshold: float = DEFAULT_DEBUG_T
     validate_required_identities(data, issues)
     validate_relay_swimmer_leg_order(data, issues)
     validate_athlete_name_quality(data, issues)
+    validate_identity_boundary_quality(data, issues)
     validate_result_time_quality(data, issues)
     validate_result_event_consistency(data, issues)
     validate_points_quality(data, issues)

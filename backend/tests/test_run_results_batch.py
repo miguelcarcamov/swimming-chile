@@ -196,6 +196,32 @@ def test_validate_input_dir_requires_review_for_known_adaip_line_wrap_residue():
     assert any(issue.issue_key == "relay_team_known_line_wrap_residue" for issue in result.issues)
 
 
+def test_validate_input_dir_requires_review_for_identity_boundary_residue():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_identity_boundary_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "athlete.csv").write_text(
+            "full_name,gender,club_name,birth_year,source_id\n"
+            '"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",female,- PARAIBA MASTER,,1\n',
+            encoding="utf-8",
+        )
+        (input_dir / "result.csv").write_text(
+            "event_name,athlete_name,club_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,age_at_event,birth_year_estimated,points,status,source_id\n"
+            'women 70+ 400 SC Meter individual_medley,"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",- PARAIBA MASTER,1,,,"8:10,74",490740,,,"0,00",valid,1\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    issue_keys = {issue.issue_key for issue in result.issues}
+    assert result.state == "requires_review"
+    assert "athlete_athlete_boundary_residue" in issue_keys
+    assert "athlete_club_boundary_residue" in issue_keys
+    assert "result_identity_boundary_residue" in issue_keys
+
+
 def test_validate_input_dir_requires_review_for_implausibly_short_seed_time():
     input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_seed_quality_{uuid.uuid4().hex}"
     try:

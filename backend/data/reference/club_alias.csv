@@ -1,4 +1,4 @@
-alias_name,canonical_name,notes
+﻿alias_name,canonical_name,notes
 Afri,Africa Natacion,codigo de equipo detectado en layout abreviado HY-TEK
 Africa Natacion,Africa Natacion,grupo fuerte africa aplicado desde auditoria 2022-2026
 AFRIN,Africa Natacion,codigo de equipo detectado en layout abreviado HY-TEK
@@ -445,3 +445,38 @@ Nomades Los Rios,Club Nomades Los Rios,decision=merge pre-suda 20260616; alias s
 Deportivo Natacion Constitucio,Club de Natacion Constitucion,decision=merge pre-suda 20260616; nombre truncado
 Toninas de Puerto Montt,Club Toninas Pto Montt,decision=merge pre-suda 20260616; Puerto/Pto
 Club Stade Frances,Stade Francais,decision=merge pre-suda 20260616; alias con prefijo Club
+Providencia,Master Providencia,suda_postload_review_20260617
+Estadio Espanol Las Condes,Estadio Español,suda_postload_review_20260617
+Recoleta,Natacion Master Recoleta,suda_postload_review_20260617
+SQUADRA,Squadra Pro Swim,suda_postload_review_20260617
+Sparta,Club Sparta A C,suda_postload_review_20260617
+Master San Berna,Master San Bernardo,suda_postload_review_20260617
+Delfines de Las,Delfines de las Condes,suda_postload_review_20260617
+Energy,Energy Swim,suda_postload_review_20260617
+STADIO ITALIANO CHILE,Stadio Italiano,suda_postload_review_20260617
+Master Providenc,Master Providencia,suda_postload_review_20260617
+Club Deportivo Ucm,Club Deportivo UC,suda_postload_review_20260617
+Natacion Ñuñoa Master,Ñuñoa Master,suda_postload_review_20260617
+CD Mayor,Club Deportivo Mayor,suda_postload_review_20260617
+Focas Antofagasta,Focas de Antofagasta,suda_postload_review_20260617
+Autoclub,Autoclub de Antofagasta,suda_postload_review_20260617
+Club Petroleros,Club Petroleros Ypf,suda_postload_review_20260617
+LO Prado,Natacion Lo Prado,suda_postload_review_20260617
+Los Lagos,Natacion Los Lagos,suda_postload_review_20260617
+Mantarrayas,Master Mantarrayas Arica,suda_postload_review_20260617
+Mendoza DE Regatas,Club Mendoza de Regatas,suda_postload_review_20260617
+Olimpia,OLIMP,suda_postload_review_20260617
+Orcos,Club Waterpolo Orcos Chile,suda_postload_review_20260617
+Polaris,Club Polaris,suda_postload_review_20260617
+Vita Valdivia,Cub Vita Valdivia,suda_postload_review_20260617
+Club Squadra ProSwim,Squadra Pro Swim,suda_postload_review_20260617_existing_duplicate
+Polaris Puerto Varas,Club Polaris,suda_postload_review_20260617_existing_duplicate
+E ESPAÑOL DE LAS,Estadio Español,suda_post_sql_review_v3_20260618
+- PARAIBA MASTER,FEAP - PARAIBA MASTER,suda_post_sql_review_v3_20260618
+100swim,Cien por Ciento Swim,suda_post_sql_review_v3_20260618
+Terrazas Miraflores,Club Terrazas Miraflores,suda_post_sql_review_v3_20260618
+Club Terrazas,Club Terrazas Miraflores,suda_post_sql_review_v3_20260618
+Club Terrazas Mi,Club Terrazas Miraflores,suda_post_sql_review_v3_20260618
+Sin Fronteras,Ñielol Sin Fronteras,suda_post_sql_review_v3_20260618
+Delfines LC,Delfines de las Condes,suda_post_sql_review_v3_20260618
+Mantarryas DE Arica,Master Mantarrayas Arica,suda_post_sql_review_v3_20260618
