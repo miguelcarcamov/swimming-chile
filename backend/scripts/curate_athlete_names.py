@@ -1593,7 +1593,6 @@ def _matches_identity_merge_key(row, rules: dict) -> bool:
 def prune_duplicate_athlete_rows_for_reviewed_identity_merges(
     athlete_df,
     rules: dict,
-    seen_identity_merge_keys: Set[Tuple[str, str, str]],
 ) -> Tuple[object, int]:
     if athlete_df.empty or not rules.get("athlete_identity_merge_keys"):
         return athlete_df, 0
@@ -1606,12 +1605,11 @@ def prune_duplicate_athlete_rows_for_reviewed_identity_merges(
         gender = normalize_match_text(row.get("gender") or row.get("suda_gender") or row.get("core_gender")) or ""
         merge_key = (name_key, birth_year, gender)
         if _matches_identity_merge_key(row, rules):
-            if merge_key in seen_identity_merge_keys or merge_key in local_seen:
+            if merge_key in local_seen:
                 dropped += 1
                 continue
             local_seen.add(merge_key)
         keep_indexes.append(index)
-    seen_identity_merge_keys.update(local_seen)
     if dropped == 0:
         return athlete_df, 0
     return athlete_df.loc[keep_indexes].reset_index(drop=True), dropped
@@ -1645,7 +1643,6 @@ def materialize_document_inputs(
     input_dir: Path,
     output_root: Path,
     rules: dict,
-    seen_identity_merge_keys: Optional[Set[Tuple[str, str, str]]] = None,
 ) -> Tuple[dict, dict]:
     output_dir = materialized_input_dir(input_dir, output_root)
     if output_dir.exists():
@@ -1712,15 +1709,15 @@ def materialize_document_inputs(
         if pruned:
             counts["athlete_rows_without_observations_dropped"] += pruned
             pruned_athlete_df.to_csv(athlete_path, index=False, encoding="utf-8-sig")
-        if seen_identity_merge_keys is not None:
-            deduped_athlete_df, deduped = prune_duplicate_athlete_rows_for_reviewed_identity_merges(
-                pruned_athlete_df,
-                rules,
-                seen_identity_merge_keys,
-            )
-            if deduped:
-                counts["athlete_reviewed_identity_duplicate_rows_dropped"] += deduped
-                deduped_athlete_df.to_csv(athlete_path, index=False, encoding="utf-8-sig")
+        # Deduplicate reviewed identities only inside this document. Each
+        # manifest entry must remain independently loadable if another fails.
+        deduped_athlete_df, deduped = prune_duplicate_athlete_rows_for_reviewed_identity_merges(
+            pruned_athlete_df,
+            rules,
+        )
+        if deduped:
+            counts["athlete_reviewed_identity_duplicate_rows_dropped"] += deduped
+            deduped_athlete_df.to_csv(athlete_path, index=False, encoding="utf-8-sig")
 
     output_document = dict(document)
     output_document.pop("pdf", None)
@@ -1754,7 +1751,6 @@ def materialize_manifest_inputs(
 ) -> Tuple[List[dict], dict]:
     materialized_documents: List[dict] = []
     total_counts = Counter()
-    seen_identity_merge_keys: Set[Tuple[str, str, str]] = set()
     for document in documents:
         source_url = clean_extracted_text(document.get("source_url")) or ""
         input_dir = input_dirs_by_source_url.get(source_url)
@@ -1765,7 +1761,6 @@ def materialize_manifest_inputs(
             input_dir,
             output_root,
             rules,
-            seen_identity_merge_keys,
         )
         materialized_documents.append(output_document)
         for key, value in counts.items():

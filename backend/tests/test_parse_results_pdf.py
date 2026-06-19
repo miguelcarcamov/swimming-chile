@@ -369,6 +369,33 @@ def test_parse_brazil_relay_swimmer_row_rejects_extra_legs():
     assert row is None
 
 
+def test_parse_brazil_relay_swimmer_row_rejects_competition_date_header():
+    ctx = parser.with_event_age_group(
+        parser.parse_brazil_event_header("35ª PROVA - REVEZAMENTO 4X50 METROS LIVRE MISTO (17/04/2026)"),
+        "160+",
+    )
+    words = [
+        {"text": "13", "x0": 64, "x1": 78, "top": 10},
+        {"text": "a", "x0": 125, "x1": 130, "top": 10},
+        {"text": "17/04/2026", "x0": 135, "x1": 190, "top": 10},
+        {"text": "(25", "x0": 195, "x1": 215, "top": 10},
+        {"text": "METROS,", "x0": 220, "x1": 265, "top": 10},
+        {"text": "10", "x0": 270, "x1": 282, "top": 10},
+        {"text": "RAIAS)", "x0": 287, "x1": 315, "top": 10},
+    ]
+
+    row = parser.parse_brazil_relay_swimmer_row(
+        words,
+        ctx,
+        page_number=125,
+        line_number=4,
+        relay_team_name='TNT MASTERS SP "A"',
+        leg_order=4,
+    )
+
+    assert row is None
+
+
 def test_parse_brazil_relay_team_row_repairs_adaip_line_wrap():
     ctx = parser.EventContext(
         event_number=35,

@@ -1104,12 +1104,47 @@ def test_prune_duplicate_athlete_rows_for_reviewed_identity_merges_keeps_homonym
     pruned, dropped = curate.prune_duplicate_athlete_rows_for_reviewed_identity_merges(
         athlete_df,
         rules,
-        set(),
     )
 
     assert dropped == 1
     assert pruned["full_name"].tolist() == ["Leal, Rene", "Torres, Sergio", "Torres, Sergio"]
     assert pruned["club_name"].tolist() == ["Fullmar Viña del Mar", "Lozada Swim Team", "Condrictios Team"]
+
+
+def test_reviewed_identity_deduplication_is_independent_for_each_document():
+    athlete_df = pd.DataFrame(
+        [
+            {
+                "full_name": "Sayago Moreno, Alexis Saul",
+                "gender": "male",
+                "club_name": "Nunoa Master",
+                "birth_year": "1993",
+            }
+        ]
+    )
+    rules = {
+        "athlete_identity_merge_keys": [
+            {
+                "name_key": "sayago moreno alexis saul",
+                "birth_year": "1993",
+                "gender": "male",
+            }
+        ]
+    }
+
+    first_document, first_dropped = curate.prune_duplicate_athlete_rows_for_reviewed_identity_merges(
+        athlete_df,
+        rules,
+    )
+    second_document, second_dropped = curate.prune_duplicate_athlete_rows_for_reviewed_identity_merges(
+        athlete_df,
+        rules,
+    )
+
+    assert first_dropped == second_dropped == 0
+    assert first_document["full_name"].tolist() == second_document["full_name"].tolist() == [
+        "Sayago Moreno, Alexis Saul"
+    ]
 
 
 def test_identity_merge_key_fills_missing_birth_year_without_merging_homonyms():

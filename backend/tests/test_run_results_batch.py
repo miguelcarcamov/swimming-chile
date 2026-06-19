@@ -202,12 +202,12 @@ def test_validate_input_dir_requires_review_for_identity_boundary_residue():
         shutil.copytree(FIXTURES_DIR / "valid", input_dir)
         (input_dir / "athlete.csv").write_text(
             "full_name,gender,club_name,birth_year,source_id\n"
-            '"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",female,- PARAIBA MASTER,,1\n',
+            '"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",female,- UNKNOWN CLUB,,1\n',
             encoding="utf-8",
         )
         (input_dir / "result.csv").write_text(
             "event_name,athlete_name,club_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,age_at_event,birth_year_estimated,points,status,source_id\n"
-            'women 70+ 400 SC Meter individual_medley,"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",- PARAIBA MASTER,1,,,"8:10,74",490740,,,"0,00",valid,1\n',
+            'women 70+ 400 SC Meter individual_medley,"MELO, MARINA PALMEIRA SOBRAL AZEVEDO (ACQUA R1FEAP",- UNKNOWN CLUB,1,,,"8:10,74",490740,,,"0,00",valid,1\n',
             encoding="utf-8",
         )
 
@@ -220,6 +220,56 @@ def test_validate_input_dir_requires_review_for_identity_boundary_residue():
     assert "athlete_athlete_boundary_residue" in issue_keys
     assert "athlete_club_boundary_residue" in issue_keys
     assert "result_identity_boundary_residue" in issue_keys
+
+
+def test_validate_input_dir_requires_review_for_relay_swimmer_boundary_residue():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_relay_identity_boundary_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "relay_team.csv").write_text(
+            "event_name,relay_team_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,points,status,source_id,page_number,line_number\n"
+            'mixed 160+ 4x50 SC Meter freestyle_relay,TNT MASTERS SP A,1,,,"2:00,00",120000,,valid,1,1,1\n',
+            encoding="utf-8",
+        )
+        (input_dir / "relay_swimmer.csv").write_text(
+            "event_name,relay_team_name,leg_order,swimmer_name,gender,age_at_event,birth_year_estimated,page_number,line_number\n"
+            'mixed 160+ 4x50 SC Meter freestyle_relay,TNT MASTERS SP A,4,"13 a 17/04/2026 (25 METROS, 10 RAIAS)",,,,,\n'
+            'mixed 120-159 4x50 LC Meter medley_relay,Formativo Nautico B,3,"3Arguello Almeida, Andrea Alexan4d)rCaa Wde3n1a Escobar, Mery Fernanda",female,66,1958,46,57\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    issue_keys = {issue.issue_key for issue in result.issues}
+    assert result.state == "requires_review"
+    assert "relay_swimmer_athlete_boundary_residue" in issue_keys
+    assert "relay_swimmer_identity_boundary_residue" in issue_keys
+
+
+def test_validate_input_dir_accepts_reviewed_literal_boundary_exception():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_boundary_exception_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "athlete.csv").write_text(
+            "full_name,gender,club_name,birth_year,source_id\n"
+            '"Marin, Eloy",male,(Anamg,1965,1\n',
+            encoding="utf-8",
+        )
+        (input_dir / "result.csv").write_text(
+            "event_name,athlete_name,club_name,rank_position,seed_time_text,seed_time_ms,result_time_text,result_time_ms,age_at_event,birth_year_estimated,points,status,source_id\n"
+            'men 55-59 50 LC Meter freestyle,"Marin, Eloy",(Anamg,1,,,"30,00",30000,55,1965,,valid,1\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    issue_keys = {issue.issue_key for issue in result.issues}
+    assert "athlete_club_boundary_residue" not in issue_keys
+    assert "result_club_boundary_residue" not in issue_keys
 
 
 def test_validate_input_dir_requires_review_for_implausibly_short_seed_time():

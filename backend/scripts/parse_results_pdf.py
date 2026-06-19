@@ -29,7 +29,7 @@ from natacion_chile.domain.normalization import (
     normalize_swim_time_text,
 )
 
-PARSER_VERSION = "0.1.26"
+PARSER_VERSION = "0.1.27"
 
 try:
     import pdfplumber
@@ -1611,6 +1611,11 @@ def parse_brazil_relay_swimmer_row(words: List[dict], ctx: EventContext, page_nu
         return None
     if len(words) < 2 or not re.fullmatch(r"\d+", str(words[0].get("text", ""))):
         return None
+    raw_line = words_to_text(words)
+    # Page headers start with a day number and overlap the swimmer-name column.
+    # They must not become relay members merely because their inferred leg is 1..4.
+    if parse_brazil_competition_dates(raw_line)[0] is not None:
+        return None
     swimmer_name = words_to_text(row_words_between(words, 120, 316))
     if not swimmer_name:
         return None
@@ -1625,7 +1630,7 @@ def parse_brazil_relay_swimmer_row(words: List[dict], ctx: EventContext, page_nu
         gender=None,
         age_at_event=None,
         birth_year_estimated=None,
-        raw_line=words_to_text(words),
+        raw_line=raw_line,
     )
 
 

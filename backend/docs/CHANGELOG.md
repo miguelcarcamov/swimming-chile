@@ -2,6 +2,18 @@
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
+## 2026-06-19 - Blindaje de identidad previo a Sudamericanos
+
+- Parser `0.1.27` evita que encabezados de fecha/piscina de Recife se emitan
+  como integrantes de relevos. La compuerta de residuos estructurales también
+  cubre `relay_swimmer.csv`, porque sus filas pueden crear atletas en core.
+- La materialización deja de eliminar atletas entre documentos distintos del
+  mismo manifest: cada competencia conserva las identidades necesarias para
+  cargar sus propios resultados aunque otro documento requiera revisión.
+- Se agrega un generador auditable de SQL para aplicar nombres canónicos
+  revisados a core sin asumir columnas inexistentes ni modificar la base por
+  defecto.
+
 ## 2026-06-17 - Corrección de bloqueos pre-load Sudamericanos
 
 - `run_pipeline_results.py` reutiliza competencias calendario vacías con estado `planned` o `finished` cuando scope, organismo, fecha, año y nombre son compatibles, evitando duplicar competencias cuando llegan resultados oficiales después de sincronizar el calendario.

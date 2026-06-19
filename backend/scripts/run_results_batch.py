@@ -50,6 +50,7 @@ UNPARSED_RELAY_EVENT_HEADER_RE = re.compile(
 EVENT_AGE_GROUP_RE = re.compile(r"\b(?:women|men)\s+(\d{1,3})-(\d{1,3})\b", re.IGNORECASE)
 ATHLETE_BOUNDARY_RESIDUE_RE = re.compile(r"[()]|(?:^|[\s,])-|-(?:$|[\s,])")
 CLUB_LEADING_BOUNDARY_RESIDUE_RE = re.compile(r"^\s*[-(]")
+CLUB_ALIAS_PATH = BACKEND_DIR / "data" / "reference" / "club_alias.csv"
 
 DEFAULT_DEBUG_THRESHOLD = 0.20
 DEFAULT_REQUIRED_COMPETITION_SCOPE = "fchmn_local"
@@ -442,10 +443,23 @@ def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues:
             )
 
 
+def load_reviewed_club_aliases(path: Path = CLUB_ALIAS_PATH) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    _, rows = read_csv_rows(path)
+    return {
+        (row.get("alias_name") or "").strip().casefold(): (row.get("canonical_name") or "").strip()
+        for row in rows
+        if (row.get("alias_name") or "").strip() and (row.get("canonical_name") or "").strip()
+    }
+
+
 def validate_identity_boundary_quality(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+    reviewed_club_aliases = load_reviewed_club_aliases()
     specs = [
         ("athlete", "full_name", "club_name"),
         ("result", "athlete_name", "club_name"),
+        ("relay_swimmer", "swimmer_name", None),
     ]
     for table_key, athlete_column, club_column in specs:
         rows = data.get(table_key, [])
@@ -457,9 +471,12 @@ def validate_identity_boundary_quality(data: dict[str, list[dict[str, str]]], is
         boundary_residue = 0
         for row in rows:
             athlete_name = (row.get(athlete_column) or "").strip()
-            club_name = (row.get(club_column) or "").strip()
+            club_name = (row.get(club_column) or "").strip() if club_column else ""
+            canonical_club_name = reviewed_club_aliases.get(club_name.casefold(), club_name)
             has_athlete_residue = bool(athlete_name and ATHLETE_BOUNDARY_RESIDUE_RE.search(athlete_name))
-            has_club_residue = bool(club_name and CLUB_LEADING_BOUNDARY_RESIDUE_RE.search(club_name))
+            has_club_residue = bool(
+                canonical_club_name and CLUB_LEADING_BOUNDARY_RESIDUE_RE.search(canonical_club_name)
+            )
             if has_athlete_residue:
                 athlete_residue += 1
             if has_club_residue:

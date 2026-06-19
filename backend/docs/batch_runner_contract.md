@@ -183,6 +183,13 @@ Bloquean la carga y dejan el lote en `requires_review`:
 - `relay_swimmer.csv` trae `leg_order` vacio o fuera del rango 1..4. Esto
   bloquea la carga antes de PostgreSQL porque `core.relay_result_member` solo
   admite cuatro postas por relevo.
+- `athlete.csv`, `result.csv` o `relay_swimmer.csv` traen nombres con residuos
+  estructurales de solapamiento, como encabezados, parentesis o marcadores de
+  posta incrustados. Toda entrada capaz de crear atletas debe pasar la misma
+  compuerta antes de cargar.
+- Los nombres de club literales confirmados contra la fuente que requieran
+  limpieza deben resolverse mediante `backend/data/reference/club_alias.csv` a
+  una forma canonica limpia; no se permite almacenar el residuo en core.
 - Se intenta cargar con `--load` sin `competition_scope=fchmn_local` o sin el
   scope requerido por `--required-competition-scope`.
 
