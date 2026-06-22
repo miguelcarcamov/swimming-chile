@@ -13,6 +13,15 @@ validar y cargar a core solo cuando se pida explícitamente.
 - Guardar evidencia auditable en `backend/data/raw/batch_summaries/`.
 - Si un documento queda `failed` o `requires_review`, no cargarlo a core.
 
+### Evidencia Sudamericanos 2022-2026 vigente (2026-06-22)
+
+El flujo internacional permanece separado del manifest FCHMN local. El manifest
+curado `backend/data/raw/manifests/suda_src_2022_2026_parser027_identity_curated_20260622.jsonl`
+valida 5/5 sin `--load`; la evidencia auditable está en
+`backend/data/raw/batch_summaries/suda_src_2022_2026_parser027_identity_curated_validation_20260622.json`.
+Recife usa parser `0.1.27` y Buenos Aires 2024 conserva cuatro integrantes por
+cada uno de sus 481 relevos mediante correcciones OCR revisadas.
+
 ---
 
 ## Estado post-load vigente: 2026-05-12

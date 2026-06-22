@@ -72,6 +72,12 @@ def test_athlete_name_signature_groups_common_ocr_variants():
     )
 
 
+def test_known_ocr_repair_drops_incomplete_trailing_parenthetical():
+    assert curate.repair_known_ocr_name_residue(
+        "RENE DE ALMEIDA LEITE (CENTRO NUTRICIONAL RL,"
+    ) == "RENE DE ALMEIDA LEITE"
+
+
 def test_build_review_rows_prefers_cleaner_canonical_names():
     rows = [
         {"athlete_name": "Pasarin, Claudia", "source_url": "a", "club_name": "Club A", "birth_year": "1964", "gender": "female"},
@@ -1476,3 +1482,77 @@ def test_load_materialization_rules_accepts_multiple_partial_decision_files():
         assert rules["ocr_name_rules"] == []
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+def test_reviewed_relay_line_correction_replaces_all_extracted_members():
+    import pandas as pd
+
+    relay_df = pd.DataFrame(
+        [
+            {
+                "event_name": "mixed 120-159 4x50 LC Meter medley_relay",
+                "relay_team_name": "Formativo Nautico B",
+                "leg_order": "1",
+                "swimmer_name": "Apolo Gaibor, Ramiro Andres",
+                "gender": "male",
+                "age_at_event": "29",
+                "birth_year_estimated": "1995",
+                "page_number": "46",
+                "line_number": "57",
+            },
+            {
+                "event_name": "mixed 120-159 4x50 LC Meter medley_relay",
+                "relay_team_name": "Formativo Nautico B",
+                "leg_order": "3",
+                "swimmer_name": "3Arguello Almeida, Andrea Alexan4d)rCaa Wde3n1a Escobar, Mery Fernanda",
+                "gender": "female",
+                "age_at_event": "66",
+                "birth_year_estimated": "1958",
+                "page_number": "46",
+                "line_number": "57",
+            },
+        ]
+    )
+    corrections = [
+        {
+            "source_url": "https://example.test/buenos-aires.pdf",
+            "page_number": "46",
+            "line_number": "57",
+            "leg_order": str(leg),
+            "swimmer_name": name,
+            "gender": gender,
+            "age_at_event": str(age),
+        }
+        for leg, name, gender, age in [
+            (1, "Apolo Gaibor, Ramiro Andres", "male", 29),
+            (2, "Estrella Cadena, José Fernando", "male", 33),
+            (3, "Arguello Almeida, Andrea Alexandra", "female", 31),
+            (4, "Cadena Escobar, Mery Fernanda", "female", 66),
+        ]
+    ]
+
+    corrected, count = curate.apply_relay_swimmer_line_corrections(
+        relay_df,
+        "https://example.test/buenos-aires.pdf",
+        corrections,
+        competition_year=2024,
+    )
+
+    assert count == 1
+    assert corrected["leg_order"].astype(str).tolist() == ["1", "2", "3", "4"]
+    assert corrected["swimmer_name"].tolist()[-1] == "Cadena Escobar, Mery Fernanda"
+    assert corrected["birth_year_estimated"].astype(str).tolist() == ["1995", "1991", "1993", "1958"]
+
+
+def test_reviewed_relay_corrections_reference_preserves_unicode_names():
+    corrections_path = BACKEND_DIR / "data" / "reference" / "suda_relay_swimmer_corrections.csv"
+    rows = curate.read_dict_rows(corrections_path)
+    names = {row["swimmer_name"] for row in rows}
+
+    assert len(rows) == 64
+    assert all("?" not in name for name in names)
+    assert {
+        "Simbaña Escobar, Maria José",
+        "Castillejo Rivero, Víctor Leopoldo",
+        "Manrique Carreño, Luis Cristobal",
+        "Estrella Cadena, José Fernando",
+        "Saca Tejada, José",
+    } <= names

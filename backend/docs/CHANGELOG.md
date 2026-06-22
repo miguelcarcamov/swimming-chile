@@ -2,6 +2,17 @@
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
+## 2026-06-22 - Regeneración pre-load Sudamericanos
+
+- Las decisiones de identidad se regeneran desde bandejas vigentes y redirects
+  core revisados; el proceso bloquea componentes que apunten a más de un atleta
+  canónico en vez de conservar decisiones derivadas anteriores.
+- Buenos Aires 2024 aplica 16 correcciones revisadas de líneas OCR de relevos:
+  481 equipos quedan con 1924 integrantes, cuatro por relevo.
+- Recife 2026 se reparsea con `0.1.27`; la curaduría elimina sufijos
+  parentéticos truncados sin inventar años para filas `N/C`.
+- El manifest separado de Sudamericanos 2022-2026 valida 5/5 sin `--load`.
+
 ## 2026-06-19 - Blindaje de identidad previo a Sudamericanos
 
 - Parser `0.1.27` evita que encabezados de fecha/piscina de Recife se emitan

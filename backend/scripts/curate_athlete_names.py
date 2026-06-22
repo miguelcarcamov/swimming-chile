@@ -127,6 +127,12 @@ def parse_args() -> argparse.Namespace:
         help="Optional reviewed result event corrections CSV with source_url, old_event_name, new_event_name, athlete_name, club_name and birth_year.",
     )
     parser.add_argument(
+        "--relay-swimmer-corrections-csv",
+        action="append",
+        default=[],
+        help="Optional reviewed relay corrections keyed by source_url, page_number and line_number.",
+    )
+    parser.add_argument(
         "--fuzzy-identity-decisions-csv",
         action="append",
         default=[],
@@ -173,6 +179,10 @@ def repair_known_ocr_name_residue(value: Optional[str]) -> Optional[str]:
         repaired = OCR_VOWEL_RESIDUE_RE.sub(drop_extra_accented_vowel, repaired)
 
     repaired = OCR_ORPHAN_VOWEL_FRAGMENT_RE.sub(r"\1\2", repaired)
+    # Swim It Up can truncate a sponsor annotation after an unmatched opening
+    # parenthesis; that suffix is structural noise, not part of the athlete name.
+    if repaired.count("(") > repaired.count(")"):
+        repaired = repaired.split("(", 1)[0].rstrip(" ,")
     repaired = re.sub(r"\s+", " ", repaired).strip()
     return repaired or cleaned
 
@@ -939,12 +949,16 @@ def load_materialization_rules(
     result_event_correction_rules = []
     for result_event_corrections_csv in getattr(args, "result_event_corrections_csv", []):
         result_event_correction_rules.extend(load_result_event_corrections(resolve_path(result_event_corrections_csv)))
+    relay_swimmer_correction_rules = []
+    for corrections_csv in getattr(args, "relay_swimmer_corrections_csv", []):
+        relay_swimmer_correction_rules.extend(read_dict_rows(resolve_path(corrections_csv)))
     comma_order_rules = build_comma_order_rules(name_rows or [])
     return {
         "ocr_name_rules": ocr_name_rules,
         "name_correction_rules": name_correction_rules,
         "result_exclusion_rules": result_exclusion_rules,
         "result_event_correction_rules": result_event_correction_rules,
+        "relay_swimmer_correction_rules": relay_swimmer_correction_rules,
         "birth_year_rules": birth_year_rules,
         "missing_birth_year_rules": missing_rules,
         "partial_name_rules": partial_rules,
@@ -956,6 +970,71 @@ def load_materialization_rules(
         "comma_order_rules": comma_order_rules,
         "comma_order_identity_rules": build_comma_order_identity_rules(comma_order_rules),
     }
+
+
+def apply_relay_swimmer_line_corrections(
+    relay_df,
+    source_url: str,
+    corrections: Sequence[dict],
+    competition_year: Optional[int] = None,
+) -> Tuple[object, int]:
+    applicable = [
+        row for row in corrections
+        if normalize_match_text(row.get("source_url")) == normalize_match_text(source_url)
+        and (normalize_match_text(row.get("decision")) or "replace") in {"replace", "correct"}
+    ]
+    if not applicable:
+        return relay_df, 0
+
+    grouped: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
+    for row in applicable:
+        grouped[(str(row.get("page_number") or "").strip(), str(row.get("line_number") or "").strip())].append(row)
+
+    corrected_df = relay_df.copy()
+    corrected_groups = 0
+    for (page_number, line_number), reviewed_rows in grouped.items():
+        leg_orders = sorted(int(row.get("leg_order") or 0) for row in reviewed_rows)
+        if leg_orders != [1, 2, 3, 4]:
+            raise ValueError(
+                f"Relay correction must contain legs 1-4: {source_url} page={page_number} line={line_number}"
+            )
+        mask = (
+            corrected_df["page_number"].astype(str).eq(page_number)
+            & corrected_df["line_number"].astype(str).eq(line_number)
+        )
+        existing = corrected_df.loc[mask]
+        if existing.empty:
+            raise ValueError(
+                f"Relay correction did not match parsed rows: {source_url} page={page_number} line={line_number}"
+            )
+        template = existing.iloc[0].to_dict()
+        replacements = []
+        for reviewed in sorted(reviewed_rows, key=lambda row: int(row["leg_order"])):
+            replacement = dict(template)
+            age = str(reviewed.get("age_at_event") or "").strip()
+            birth_year = str(reviewed.get("birth_year_estimated") or "").strip()
+            if not birth_year and competition_year is not None and age.isdigit():
+                birth_year = str(competition_year - int(age))
+            replacement.update(
+                leg_order=str(reviewed["leg_order"]),
+                swimmer_name=clean_extracted_text(reviewed.get("swimmer_name")) or "",
+                gender=normalize_match_text(reviewed.get("gender")) or "",
+                age_at_event=age,
+                birth_year_estimated=birth_year,
+                page_number=page_number,
+                line_number=line_number,
+            )
+            replacements.append(replacement)
+        corrected_df = pd.concat(
+            [corrected_df.loc[~mask], pd.DataFrame(replacements, columns=corrected_df.columns)],
+            ignore_index=True,
+        )
+        corrected_groups += 1
+
+    corrected_df = corrected_df.sort_values(
+        ["page_number", "line_number", "leg_order"], kind="stable"
+    ).reset_index(drop=True)
+    return corrected_df, corrected_groups
 
 
 def _row_context(row, name_column: str, club_column: str, birth_year_column: str, gender_column: Optional[str]) -> dict:
@@ -1651,6 +1730,7 @@ def materialize_document_inputs(
 
     counts = Counter()
     curated_tables = {}
+    source_url = clean_extracted_text(document.get("source_url")) or ""
     for table_name, filename in [
         ("athlete", "athlete.csv"),
         ("result", "result.csv"),
@@ -1662,6 +1742,13 @@ def materialize_document_inputs(
         df = read_csv_if_exists(csv_path)
         curated_df, table_counts = apply_athlete_curations_to_df(df, table_name, rules)
         if table_name == "relay_swimmer":
+            curated_df, corrected_lines = apply_relay_swimmer_line_corrections(
+                curated_df,
+                source_url,
+                rules.get("relay_swimmer_correction_rules", []),
+            )
+            if corrected_lines:
+                counts["relay_swimmer_reviewed_lines_corrected"] += corrected_lines
             curated_df, dropped = drop_invalid_relay_swimmer_leg_order(curated_df)
             if dropped:
                 counts["relay_swimmer_invalid_leg_order_dropped"] += dropped
@@ -1678,7 +1765,6 @@ def materialize_document_inputs(
         result_path, result_df = curated_tables["result"]
         athlete_path, athlete_df = curated_tables["athlete"]
         relay_path, relay_swimmer_df = curated_tables.get("relay_swimmer", (None, None))
-        source_url = clean_extracted_text(document.get("source_url")) or ""
         filtered_result_df, corrected = apply_result_event_corrections(result_df, source_url, rules)
         if corrected:
             counts["result_event_correction_rows"] += corrected
