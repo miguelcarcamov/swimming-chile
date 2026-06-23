@@ -724,6 +724,34 @@ def test_canonicalize_space_ordered_name_preserves_surname_particles():
     assert curate.canonicalize_space_ordered_name("Rojas, Jorge") == "Rojas, Jorge"
 
 
+def test_portuguese_name_tokens_and_case_are_preserved():
+    assert curate.NAME_TOKEN_RE.findall("GONÇALVES CORRÊA CONCEIÇÃO") == [
+        "GONÇALVES",
+        "CORRÊA",
+        "CONCEIÇÃO",
+    ]
+    assert (
+        curate.normalize_person_name_case("MARIA MADALENA NUNES CONCEIÇÃO")
+        == "Maria Madalena Nunes Conceição"
+    )
+
+
+def test_apply_curations_preserves_reviewed_given_family_source_order():
+    df = pd.DataFrame(
+        [{"full_name": "VICTOR HUGO HORDONES ABDO", "club_name": "TNT SP", "birth_year": "", "gender": "male"}]
+    )
+
+    curated, counts = curate.apply_athlete_curations_to_df(
+        df,
+        "athlete",
+        {"ocr_name_rules": [], "birth_year_rules": {}, "missing_birth_year_rules": [], "partial_name_rules": []},
+        preserve_source_name_order=True,
+    )
+
+    assert curated.iloc[0]["full_name"] == "Victor Hugo Hordones Abdo"
+    assert counts.get("space_order_name_canonicalizations", 0) == 0
+
+
 def test_apply_athlete_curations_to_df_canonicalizes_space_ordered_names():
     df = pd.DataFrame(
         [

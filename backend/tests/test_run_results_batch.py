@@ -248,6 +248,45 @@ def test_validate_input_dir_requires_review_for_relay_swimmer_boundary_residue()
     assert "relay_swimmer_identity_boundary_residue" in issue_keys
 
 
+def test_validate_input_dir_requires_review_for_web_footer_as_relay_swimmer():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_relay_web_footer_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        (input_dir / "relay_swimmer.csv").write_text(
+            "event_name,relay_team_name,leg_order,swimmer_name,gender,age_at_event,birth_year_estimated,page_number,line_number\n"
+            'mixed 160+ 4x50 SC Meter freestyle_relay,TNT MASTERS SP A,3,"br, Masters de Natação www.abmn.org",,,,,124,84\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    issue_keys = {issue.issue_key for issue in result.issues}
+    assert result.state == "requires_review"
+    assert "relay_swimmer_non_identity_text" in issue_keys
+
+
+def test_validate_input_dir_accepts_given_family_names_when_metadata_declares_order():
+    input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_given_family_{uuid.uuid4().hex}"
+    try:
+        shutil.copytree(FIXTURES_DIR / "valid", input_dir)
+        metadata = json.loads((input_dir / "metadata.json").read_text(encoding="utf-8"))
+        metadata["athlete_name_order"] = "given_family"
+        (input_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+        (input_dir / "athlete.csv").write_text(
+            "full_name,gender,club_name,birth_year,source_id\n"
+            'Victor Hugo Hordones Abdo,male,TNT SP,,1\n',
+            encoding="utf-8",
+        )
+
+        result = batch.validate_input_dir(input_dir)
+    finally:
+        shutil.rmtree(input_dir, ignore_errors=True)
+
+    assert "athlete_name_without_comma" not in {issue.issue_key for issue in result.issues}
+
+
 def test_validate_input_dir_accepts_reviewed_literal_boundary_exception():
     input_dir = BACKEND_DIR / "data" / "staging" / "csv" / f"test_boundary_exception_{uuid.uuid4().hex}"
     try:

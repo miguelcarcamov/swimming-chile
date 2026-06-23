@@ -50,6 +50,7 @@ UNPARSED_RELAY_EVENT_HEADER_RE = re.compile(
 EVENT_AGE_GROUP_RE = re.compile(r"\b(?:women|men)\s+(\d{1,3})-(\d{1,3})\b", re.IGNORECASE)
 ATHLETE_BOUNDARY_RESIDUE_RE = re.compile(r"[()]|(?:^|[\s,])-|-(?:$|[\s,])")
 CLUB_LEADING_BOUNDARY_RESIDUE_RE = re.compile(r"^\s*[-(]")
+NON_IDENTITY_WEB_TEXT_RE = re.compile(r"(?:\bwww\b|https?://|\b[a-z0-9-]+\.(?:com|org|net|cl|br)\b)", re.IGNORECASE)
 CLUB_ALIAS_PATH = BACKEND_DIR / "data" / "reference" / "club_alias.csv"
 
 DEFAULT_DEBUG_THRESHOLD = 0.20
@@ -389,9 +390,13 @@ def has_vowel_plus_accented_vowel_residue(name: str) -> bool:
     return False
 
 
-def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues: list[BatchIssue]) -> None:
+def validate_athlete_name_quality(
+    data: dict[str, list[dict[str, str]]],
+    issues: list[BatchIssue],
+    allow_space_ordered_names: bool = False,
+) -> None:
     specs = [
-        ("athlete", "full_name", True),
+        ("athlete", "full_name", not allow_space_ordered_names),
         ("result", "athlete_name", False),
         ("relay_swimmer", "swimmer_name", False),
     ]
@@ -403,6 +408,7 @@ def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues:
         vowel_plus_accented = 0
         split_enye = 0
         missing_comma = 0
+        non_identity_text = 0
         for row in rows:
             name = (row.get(column) or "").strip()
             if not name:
@@ -413,6 +419,8 @@ def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues:
                 split_enye += 1
             if require_comma and "," not in name:
                 missing_comma += 1
+            if NON_IDENTITY_WEB_TEXT_RE.search(name):
+                non_identity_text += 1
 
         if vowel_plus_accented:
             issues.append(
@@ -430,6 +438,15 @@ def validate_athlete_name_quality(data: dict[str, list[dict[str, str]]], issues:
                     f"{table_key}_split_enye",
                     f"{table_key}.csv tiene nombres con residuo OCR de ene/eñe separada.",
                     split_enye,
+                )
+            )
+        if non_identity_text:
+            issues.append(
+                BatchIssue(
+                    "error",
+                    f"{table_key}_non_identity_text",
+                    f"{table_key}.csv contiene URLs o pies editoriales en nombres de atleta.",
+                    non_identity_text,
                 )
             )
         if missing_comma:
@@ -823,7 +840,11 @@ def validate_input_dir(input_dir: Path, debug_threshold: float = DEFAULT_DEBUG_T
     validate_canons(data, issues)
     validate_required_identities(data, issues)
     validate_relay_swimmer_leg_order(data, issues)
-    validate_athlete_name_quality(data, issues)
+    validate_athlete_name_quality(
+        data,
+        issues,
+        allow_space_ordered_names=metadata.get("athlete_name_order") == "given_family",
+    )
     validate_identity_boundary_quality(data, issues)
     validate_result_time_quality(data, issues)
     validate_result_event_consistency(data, issues)

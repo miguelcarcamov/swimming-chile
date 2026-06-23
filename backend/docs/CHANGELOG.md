@@ -2,6 +2,22 @@
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
+## 2026-06-23 - Parser 0.1.29 y nombres brasileños
+
+- Recife declara orden de nombres `given_family`; la curaduría deja de inventar
+  una coma suponiendo que el último token es todo el apellido.
+- La tokenización admite letras Unicode portuguesas como `Ç`, `Ã` y `Â`, y los
+  nombres de esta fuente se normalizan a mayúscula inicial sin perder diacríticos.
+- El batch admite nombres sin coma únicamente cuando `metadata.json` declara
+  explícitamente el orden natural de la fuente.
+
+## 2026-06-22 - Parser 0.1.28 y pie editorial en relevos
+
+- Parser `0.1.28` impide que URLs o pies editoriales ubicados sobre la columna
+  del nadador se conviertan en integrantes de relevos.
+- La validación batch aplica la misma compuerta sobre nombres materializados,
+  para bloquear residuos equivalentes antes de `--load`.
+
 ## 2026-06-22 - Regeneración pre-load Sudamericanos
 
 - Las decisiones de identidad se regeneran desde bandejas vigentes y redirects

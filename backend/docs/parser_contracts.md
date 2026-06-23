@@ -2,6 +2,11 @@
 
 Este documento fija los contratos minimos de entrada y salida del parser antes de modularizarlo. La meta es que los tests protejan el comportamiento actual y que cualquier cambio futuro pueda explicarse contra estos acuerdos.
 
+Los layouts que publican el nombre completo en orden natural pueden declarar
+`athlete_name_order: given_family` en `metadata.json`. Esa marca evita que la
+curaduría invente la separación entre nombres y apellidos cuando la fuente no
+la proporciona.
+
 ## Entrada
 
 - Fuente principal: PDF de resultados FCHMN/HY-TEK.

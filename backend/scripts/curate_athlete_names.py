@@ -24,8 +24,8 @@ from audit_expected_athlete_identity import load_birth_year_evidence, load_parti
 from run_pipeline_results import clean_extracted_text, normalize_match_text
 
 
-NAME_TOKEN_RE = re.compile(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+")
-FRAGMENTED_NAME_RE = re.compile(r"(?:^|\s)(?:[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]\s+){2,}[A-Za-zÁÉÍÓÚÜÑáéíóúüñ](?:\s|$)")
+NAME_TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+FRAGMENTED_NAME_RE = re.compile(r"(?:^|\s)(?:[^\W\d_]\s+){2,}[^\W\d_](?:\s|$)", re.UNICODE)
 NOISY_VOWEL_RUN_RE = re.compile(r"[aeiou]{2,}")
 REPEATED_VOWEL_RUN_RE = re.compile(r"([aeiou])\1+")
 OCR_VOWEL_RESIDUE_RE = re.compile(r"([aeiouAEIOUáéíóúüÁÉÍÓÚÜ])([áéíóúüÁÉÍÓÚÜ])")
@@ -492,6 +492,24 @@ def canonicalize_space_ordered_name(value: Optional[str]) -> Optional[str]:
     if not given_tokens or not surname_tokens:
         return cleaned
     return f"{' '.join(surname_tokens)}, {' '.join(given_tokens)}"
+
+
+def normalize_person_name_case(value: Optional[str]) -> Optional[str]:
+    cleaned = clean_extracted_text(value)
+    if not cleaned:
+        return cleaned
+    particles = {"da", "das", "de", "del", "do", "dos", "e", "la", "las", "los", "y"}
+
+    def normalize_token(match: re.Match[str]) -> str:
+        token = match.group(0)
+        lowered = token.lower()
+        if lowered in particles:
+            return lowered
+        if len(token) == 1:
+            return token.upper()
+        return lowered[:1].upper() + lowered[1:]
+
+    return NAME_TOKEN_RE.sub(normalize_token, cleaned)
 
 
 def load_missing_birth_year_consolidations(path: Path) -> List[dict]:
@@ -1101,6 +1119,7 @@ def apply_athlete_curations_to_df(
     df,
     table_name: str,
     rules: dict,
+    preserve_source_name_order: bool = False,
 ) -> Tuple[object, dict]:
     specs = {
         "athlete": ("full_name", "club_name", "birth_year", "gender"),
@@ -1240,7 +1259,11 @@ def apply_athlete_curations_to_df(
             context["name_key"] = ordered_name_key(repaired_context_name)
             counts["known_ocr_name_residue_repairs"] += 1
 
-        canonical_order_name = None if context["birth_year"] else canonicalize_space_ordered_name(context["name"])
+        canonical_order_name = (
+            None
+            if context["birth_year"] or preserve_source_name_order
+            else canonicalize_space_ordered_name(context["name"])
+        )
         if canonical_order_name and canonical_order_name != context["name"]:
             output.at[index, name_column] = canonical_order_name
             context["name"] = canonical_order_name
@@ -1268,6 +1291,14 @@ def apply_athlete_curations_to_df(
 
         if _apply_identity_merge_missing_birth_year(output, index, birth_year_column, context, rules):
             counts["identity_merge_missing_birth_year_consolidations"] += 1
+
+        if preserve_source_name_order:
+            normalized_case = normalize_person_name_case(context["name"])
+            if normalized_case and normalized_case != context["name"]:
+                output.at[index, name_column] = normalized_case
+                context["name"] = normalized_case
+                context["name_key"] = ordered_name_key(normalized_case)
+                counts["person_name_case_normalizations"] += 1
 
     return output, dict(counts)
 
@@ -1731,6 +1762,11 @@ def materialize_document_inputs(
     counts = Counter()
     curated_tables = {}
     source_url = clean_extracted_text(document.get("source_url")) or ""
+    source_metadata = {}
+    metadata_path = input_dir / "metadata.json"
+    if metadata_path.exists():
+        source_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    preserve_source_name_order = source_metadata.get("athlete_name_order") == "given_family"
     for table_name, filename in [
         ("athlete", "athlete.csv"),
         ("result", "result.csv"),
@@ -1740,7 +1776,12 @@ def materialize_document_inputs(
         if not csv_path.exists():
             continue
         df = read_csv_if_exists(csv_path)
-        curated_df, table_counts = apply_athlete_curations_to_df(df, table_name, rules)
+        curated_df, table_counts = apply_athlete_curations_to_df(
+            df,
+            table_name,
+            rules,
+            preserve_source_name_order=preserve_source_name_order,
+        )
         if table_name == "relay_swimmer":
             curated_df, corrected_lines = apply_relay_swimmer_line_corrections(
                 curated_df,

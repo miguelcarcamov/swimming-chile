@@ -29,7 +29,7 @@ from natacion_chile.domain.normalization import (
     normalize_swim_time_text,
 )
 
-PARSER_VERSION = "0.1.27"
+PARSER_VERSION = "0.1.29"
 
 try:
     import pdfplumber
@@ -149,6 +149,7 @@ RELAY_SWIMMER_EMBEDDED_NEXT_RE = re.compile(
     re.IGNORECASE,
 )
 RELAY_CONTINUATION_GENDER_AGE_RE = re.compile(r"\s(?P<gender>[WM])(?P<age>\d{1,3})(?=\s|$)", re.IGNORECASE)
+NON_IDENTITY_WEB_TEXT_RE = re.compile(r"(?:\bwww\b|https?://|\b[a-z0-9-]+\.(?:com|org|net|cl|br)\b)", re.IGNORECASE)
 LETTER_CHARS = "A-Za-zÁÉÍÓÚÜÑáéíóúüñ"
 
 HEADER_SKIP_PATTERNS = [
@@ -1619,6 +1620,9 @@ def parse_brazil_relay_swimmer_row(words: List[dict], ctx: EventContext, page_nu
     swimmer_name = words_to_text(row_words_between(words, 120, 316))
     if not swimmer_name:
         return None
+    # Los pies editoriales pueden caer dentro de la columna del nadador y comenzar con un dígito de página.
+    if NON_IDENTITY_WEB_TEXT_RE.search(swimmer_name):
+        return None
     return ParsedRelaySwimmerRow(
         page_number=page_number,
         line_number=line_number,
@@ -2130,6 +2134,7 @@ def parse_brazil_pdf(pdf_path: Path):
         "competition_end_date": competition_end_date,
         "results_label": results_label,
         "competition_year": competition_year,
+        "athlete_name_order": "given_family",
     }
     return rows, relay_team_rows, relay_swimmer_rows, debug_df, stats, metadata
 

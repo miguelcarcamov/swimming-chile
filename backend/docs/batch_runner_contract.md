@@ -136,6 +136,13 @@ Relacion con `load_run`:
 
 ## Compuertas minimas antes de cargar
 
+- Los nombres de atletas e integrantes de relevos no pueden contener URLs ni
+  huellas de pies editoriales (`www`, protocolos o dominios web); el documento
+  queda `requires_review` si esos textos llegan a los CSV materializados.
+- `athlete.csv` exige `Apellido, Nombre`, salvo que `metadata.json` declare
+  `athlete_name_order=given_family`; esa excepción preserva fuentes que no
+  ofrecen una separación fiable entre nombres y apellidos.
+
 Las compuertas duras ocurren antes de ejecutar `run_pipeline_results.py`.
 
 Bloquean la carga y dejan el lote en `requires_review`:
