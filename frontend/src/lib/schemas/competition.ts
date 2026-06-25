@@ -13,6 +13,7 @@ export const CompetitionSchema = z.object({
   governing_body_code: z.string().nullable().optional(),
   governing_body_name: z.string().nullable().optional(),
   organizer: z.string().nullable().optional(),
+  source_url: z.string().nullable().optional(),
 });
 
 export type Competition = z.infer<typeof CompetitionSchema>;

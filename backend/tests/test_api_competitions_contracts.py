@@ -23,6 +23,8 @@ def test_competitions_api_filters_by_scope_and_governing_body():
     assert "governing_body_code" in source
     assert "governing_body_name" in source
     assert "organizer" in source
+    assert "coalesce(c.source_url, latest_doc.source_url) as source_url" in source
+    assert "join core.source_document sd on sd.id = lr.source_document_id" in source
 
 
 def test_competitions_api_exposes_filter_options_from_database():

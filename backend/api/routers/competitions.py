@@ -136,7 +136,30 @@ def get_competition_filter_options(
 def get_competition(competition_id: int):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, start_date as date_start, city as location, course_type, competition_scope, governing_body_code, governing_body_name, organizer FROM core.competition WHERE id = %s", (competition_id,))
+            cur.execute("""
+                SELECT
+                    c.id,
+                    c.name,
+                    c.start_date as date_start,
+                    c.city as location,
+                    c.course_type,
+                    c.competition_scope,
+                    c.governing_body_code,
+                    c.governing_body_name,
+                    c.organizer,
+                    COALESCE(c.source_url, latest_doc.source_url) as source_url
+                FROM core.competition c
+                LEFT JOIN LATERAL (
+                    SELECT sd.source_url
+                    FROM core.load_run lr
+                    JOIN core.source_document sd ON sd.id = lr.source_document_id
+                    WHERE lr.competition_id = c.id
+                      AND sd.source_url IS NOT NULL
+                    ORDER BY lr.completed_at DESC NULLS LAST, lr.started_at DESC NULLS LAST, lr.id DESC
+                    LIMIT 1
+                ) latest_doc ON TRUE
+                WHERE c.id = %s
+            """, (competition_id,))
             competition = cur.fetchone()
             
             if not competition:

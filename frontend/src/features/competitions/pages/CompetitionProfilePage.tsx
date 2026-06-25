@@ -42,6 +42,86 @@ type PruebaGroup = {
   ageGroups: AgeGroupCategory[];
 };
 
+const CategoryResults: React.FC<{ cat: AgeGroupCategory; isRelay: boolean; isSearching: boolean }> = ({ cat, isRelay, isSearching }) => {
+  const [expanded, setExpanded] = useState(false);
+  const showContent = isSearching || expanded;
+
+  return (
+    <div className="border-b border-slate-100 last:border-0">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 bg-slate-50/50 px-6 py-2 text-left border-b border-slate-200 hover:bg-slate-100 transition-colors"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-2">
+          <svg className={`w-4 h-4 text-slate-400 transition-transform ${showContent ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          <h4 className="font-semibold text-slate-700 text-sm">{cat.categoryTitle}</h4>
+        </div>
+        <span className="text-xs font-medium text-slate-500">{cat.results.length} {isRelay ? 'equipos' : 'nadadores'}</span>
+      </button>
+
+      {showContent && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
+              <tr>
+                <th className="px-6 py-2 w-16 text-center">Pos</th>
+                <th className="px-6 py-2">{isRelay ? 'Equipo' : 'Nadador'}</th>
+                <th className="px-6 py-2 hidden sm:table-cell">Club</th>
+                <th className="px-6 py-2 text-right">Tiempo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {cat.results.map((result, idx) => (
+                <tr key={`${result.athlete_id || 'relay'}-${idx}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-2 text-center">
+                    {result.rank ? (
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs ${
+                        result.rank === 1 ? 'bg-amber-100 text-amber-700' :
+                        result.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                        result.rank === 3 ? 'bg-orange-50 text-orange-700' :
+                        'text-slate-500'
+                      }`}>
+                        {result.rank}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-bold">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-2">
+                    {result.athlete_id ? (
+                      <Link to={`/athletes/${result.athlete_id}`} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline">
+                        {result.athlete_name}
+                      </Link>
+                    ) : (
+                      <span className="font-semibold text-slate-800">
+                        {result.athlete_name}
+                      </span>
+                    )}
+                    <div className="text-xs text-slate-500 sm:hidden mt-0.5">{result.club_name}</div>
+                  </td>
+                  <td className="px-6 py-2 text-slate-600 hidden sm:table-cell">{result.club_name}</td>
+                  <td className="px-6 py-2 text-right">
+                    {result.status === 'valid' ? (
+                      <span className="font-mono font-bold text-slate-900">{result.time_text}</span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 uppercase">
+                        {result.status}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PruebaCard: React.FC<{ group: PruebaGroup; isSearching: boolean }> = ({ group, isSearching }) => {
   const [expanded, setExpanded] = useState(false);
   const showContent = isSearching || expanded;
@@ -69,65 +149,7 @@ const PruebaCard: React.FC<{ group: PruebaGroup; isSearching: boolean }> = ({ gr
       {showContent && (
         <div className="flex flex-col">
           {group.ageGroups.map(cat => (
-            <div key={cat.id} className="border-b border-slate-100 last:border-0">
-              <div className="bg-slate-50/50 px-6 py-2 border-b border-slate-200">
-                <h4 className="font-semibold text-slate-700 text-sm">{cat.categoryTitle}</h4>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-white text-slate-500 font-medium border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-2 w-16 text-center">Pos</th>
-                      <th className="px-6 py-2">{isRelay ? 'Equipo' : 'Nadador'}</th>
-                      <th className="px-6 py-2 hidden sm:table-cell">Club</th>
-                      <th className="px-6 py-2 text-right">Tiempo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {cat.results.map((result, idx) => (
-                      <tr key={`${result.athlete_id || 'relay'}-${idx}`} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-2 text-center">
-                          {result.rank ? (
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold text-xs ${
-                              result.rank === 1 ? 'bg-amber-100 text-amber-700' :
-                              result.rank === 2 ? 'bg-slate-100 text-slate-600' :
-                              result.rank === 3 ? 'bg-orange-50 text-orange-700' :
-                              'text-slate-500'
-                            }`}>
-                              {result.rank}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 font-bold">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-2">
-                          {result.athlete_id ? (
-                            <Link to={`/athletes/${result.athlete_id}`} className="font-semibold text-blue-600 hover:text-blue-800 hover:underline" onClick={(e) => e.stopPropagation()}>
-                              {result.athlete_name}
-                            </Link>
-                          ) : (
-                            <span className="font-semibold text-slate-800">
-                              {result.athlete_name}
-                            </span>
-                          )}
-                          <div className="text-xs text-slate-500 sm:hidden mt-0.5">{result.club_name}</div>
-                        </td>
-                        <td className="px-6 py-2 text-slate-600 hidden sm:table-cell">{result.club_name}</td>
-                        <td className="px-6 py-2 text-right">
-                          {result.status === 'valid' ? (
-                            <span className="font-mono font-bold text-slate-900">{result.time_text}</span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 uppercase">
-                              {result.status}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <CategoryResults key={cat.id} cat={cat} isRelay={isRelay} isSearching={isSearching} />
           ))}
         </div>
       )}
@@ -272,6 +294,20 @@ export const CompetitionProfilePage: React.FC = () => {
                 </svg>
                 {competition.location || 'Sede por confirmar'}
               </span>
+              {competition.source_url && (
+                <a
+                  href={competition.source_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-blue-200 hover:text-white hover:underline"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 6h4.5M6 6v12h12v-4.5" />
+                  </svg>
+                  Fuente oficial
+                </a>
+              )}
             </div>
           </div>
           
