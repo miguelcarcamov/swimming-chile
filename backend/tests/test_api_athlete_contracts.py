@@ -59,6 +59,8 @@ def test_clubs_api_counts_current_athletes_from_current_club_view():
 
     assert "core.athlete_current_club acc" in source
     assert "where acc.club_id = c.id" in source
+    assert "c.city" in source
+    assert "c.short_name as city" not in source
     assert "from core.athlete a where a.club_id = c.id" not in source
 
 
@@ -79,13 +81,13 @@ def test_club_search_requires_every_token_across_name_fields():
 
     tokens = search_tokens("Natacion San Bernardo")
     clause, params = build_token_search_clause(
-        ["c.name", "COALESCE(c.short_name, '')"], tokens
+        ["c.name", "COALESCE(c.city, '')", "COALESCE(c.region, '')"], tokens
     )
 
-    assert clause.count("LIKE %s") == 6
+    assert clause.count("LIKE %s") == 9
     assert clause.count(" AND ") == 2
     assert params == [
-        "%natacion%", "%natacion%",
-        "%san%", "%san%",
-        "%bernardo%", "%bernardo%",
+        "%natacion%", "%natacion%", "%natacion%",
+        "%san%", "%san%", "%san%",
+        "%bernardo%", "%bernardo%", "%bernardo%",
     ]

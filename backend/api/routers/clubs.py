@@ -17,7 +17,7 @@ def list_clubs(
             offset = (page - 1) * page_size
             
             query = """
-                SELECT c.id, c.name, c.short_name as city, c.region as country, c.association_name,
+                SELECT c.id, c.name, c.city, c.region as country, c.association_name,
                        (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
                 FROM core.club c 
                 WHERE EXISTS (SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id)
@@ -29,7 +29,7 @@ def list_clubs(
                 tokens = search_tokens(search)
                 if tokens:
                     search_clause, search_params = build_token_search_clause(
-                        ["c.name", "COALESCE(c.short_name, '')"], tokens
+                        ["c.name", "COALESCE(c.city, '')", "COALESCE(c.region, '')"], tokens
                     )
                     query += f" AND {search_clause}"
                     count_query += f" AND {search_clause}"
@@ -63,7 +63,7 @@ def get_club(club_id: int):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT c.id, c.name, c.short_name as city, c.region as country, c.association_name,
+                SELECT c.id, c.name, c.city, c.region as country, c.association_name,
                        (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
                 FROM core.club c
                 WHERE c.id = %s
