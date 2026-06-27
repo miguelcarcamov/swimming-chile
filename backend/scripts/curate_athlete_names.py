@@ -21,7 +21,7 @@ import pandas as pd
 
 from audit_athlete_names import load_manifest, load_overrides, read_csv_if_exists, resolve_path
 from audit_expected_athlete_identity import load_birth_year_evidence, load_partial_name_decisions
-from run_pipeline_results import clean_extracted_text, normalize_match_text
+from run_pipeline_results import clean_extracted_text, infer_relay_club_name, normalize_match_text, normalize_string
 
 
 NAME_TOKEN_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
@@ -242,6 +242,67 @@ def athlete_name_noise_score(name: Optional[str]) -> int:
     return score
 
 
+
+def relay_swimmer_club_context_by_index(input_dir: Path, relay_swimmer_df) -> Dict[int, str]:
+    """Infer relay swimmer club context without changing relay_swimmer.csv schema.
+
+    Parser relay swimmers carry relay_team_name, not club_name. Name-curation
+    rules are club-locked, so derive the same club context later used by the
+    loader from relay_team.csv + club.csv.
+    """
+    if relay_swimmer_df.empty or "relay_team_name" not in relay_swimmer_df.columns:
+        return {}
+    relay_team_path = input_dir / "relay_team.csv"
+    club_path = input_dir / "club.csv"
+    if not relay_team_path.exists():
+        return {}
+    relay_team_df = read_csv_if_exists(relay_team_path)
+    if relay_team_df.empty or not {"event_name", "relay_team_name"}.issubset(set(relay_team_df.columns)):
+        return {}
+
+    club_df = read_csv_if_exists(club_path)
+    club_names = [name for name in club_df.get("name", pd.Series(dtype=str)).tolist() if normalize_string(name)]
+    relay_team_df = relay_team_df.copy()
+    explicit_club_names = (
+        relay_team_df["club_name"].map(clean_extracted_text)
+        if "club_name" in relay_team_df.columns
+        else pd.Series([None] * len(relay_team_df), index=relay_team_df.index, dtype=object)
+    )
+    relay_team_df["club_name"] = explicit_club_names.combine_first(
+        relay_team_df["relay_team_name"].map(lambda value: infer_relay_club_name(value, club_names))
+    )
+    relay_team_df["_event_key"] = relay_team_df["event_name"].map(normalize_match_text)
+    relay_team_df["_team_key"] = relay_team_df["relay_team_name"].map(normalize_match_text)
+    relay_team_df["_page_number_int"] = pd.to_numeric(relay_team_df.get("page_number"), errors="coerce")
+    relay_team_df["_line_number_int"] = pd.to_numeric(relay_team_df.get("line_number"), errors="coerce")
+    relay_team_df["_document_order"] = range(len(relay_team_df))
+
+    context: Dict[int, str] = {}
+    for index, row in relay_swimmer_df.iterrows():
+        event_key = normalize_match_text(row.get("event_name"))
+        team_key = normalize_match_text(row.get("relay_team_name"))
+        candidates = relay_team_df[(relay_team_df["_event_key"] == event_key) & (relay_team_df["_team_key"] == team_key)]
+        selected = None
+        if not candidates.empty:
+            swimmer_page = pd.to_numeric(pd.Series([row.get("page_number")]), errors="coerce").iloc[0]
+            swimmer_line = pd.to_numeric(pd.Series([row.get("line_number")]), errors="coerce").iloc[0]
+            if pd.notna(swimmer_page) and pd.notna(swimmer_line):
+                same_page_previous = candidates[
+                    (candidates["_page_number_int"] == swimmer_page)
+                    & (candidates["_line_number_int"].notna())
+                    & (candidates["_line_number_int"] <= swimmer_line)
+                ]
+                if not same_page_previous.empty:
+                    selected = same_page_previous.sort_values(["_line_number_int", "_document_order"]).iloc[-1]
+            if selected is None:
+                selected = candidates.sort_values("_document_order").iloc[-1]
+        club_name = (
+            clean_extracted_text(selected.get("club_name")) if selected is not None else None
+        ) or infer_relay_club_name(row.get("relay_team_name"), club_names)
+        if club_name:
+            context[index] = club_name
+    return context
+
 def collect_name_rows(document: dict, input_dir: Path) -> List[dict]:
     source_url = clean_extracted_text(document.get("source_url")) or ""
     rows: List[dict] = []
@@ -255,17 +316,19 @@ def collect_name_rows(document: dict, input_dir: Path) -> List[dict]:
         df = read_csv_if_exists(input_dir / filename)
         if df.empty or name_column not in df.columns:
             continue
-        for _, row in df.iterrows():
+        relay_club_context = relay_swimmer_club_context_by_index(input_dir, df) if table_name == "relay_swimmer" else {}
+        for index, row in df.iterrows():
             athlete_name = clean_extracted_text(row.get(name_column))
             if not athlete_name:
                 continue
+            club_name = relay_club_context.get(index) or clean_extracted_text(row.get(club_column)) or ""
             rows.append(
                 {
                     "source_url": source_url,
                     "input_dir": str(input_dir),
                     "table": table_name,
                     "athlete_name": athlete_name,
-                    "club_name": clean_extracted_text(row.get(club_column)) or "",
+                    "club_name": club_name,
                     "gender": clean_extracted_text(row.get(gender_column)) or "" if gender_column else "",
                     "birth_year": clean_extracted_text(row.get(birth_year_column)) or "",
                 }
@@ -1055,9 +1118,16 @@ def apply_relay_swimmer_line_corrections(
     return corrected_df, corrected_groups
 
 
-def _row_context(row, name_column: str, club_column: str, birth_year_column: str, gender_column: Optional[str]) -> dict:
+def _row_context(
+    row,
+    name_column: str,
+    club_column: str,
+    birth_year_column: str,
+    gender_column: Optional[str],
+    club_name_override: Optional[str] = None,
+) -> dict:
     name = clean_extracted_text(row.get(name_column))
-    club_key = normalize_match_text(row.get(club_column)) or ""
+    club_key = normalize_match_text(club_name_override if club_name_override else row.get(club_column)) or ""
     birth_year = normalize_birth_year(row.get(birth_year_column))
     gender = normalize_match_text(row.get(gender_column)) or "" if gender_column else ""
     return {
@@ -1120,6 +1190,7 @@ def apply_athlete_curations_to_df(
     table_name: str,
     rules: dict,
     preserve_source_name_order: bool = False,
+    club_context_by_index: Optional[Dict[int, str]] = None,
 ) -> Tuple[object, dict]:
     specs = {
         "athlete": ("full_name", "club_name", "birth_year", "gender"),
@@ -1146,7 +1217,8 @@ def apply_athlete_curations_to_df(
         if birth_year_column not in output.columns:
             continue
 
-        context = _row_context(row, name_column, club_column, birth_year_column, gender_column)
+        club_name_override = (club_context_by_index or {}).get(index)
+        context = _row_context(row, name_column, club_column, birth_year_column, gender_column, club_name_override)
         if not context["name_key"]:
             continue
 
@@ -1776,11 +1848,15 @@ def materialize_document_inputs(
         if not csv_path.exists():
             continue
         df = read_csv_if_exists(csv_path)
+        club_context_by_index = (
+            relay_swimmer_club_context_by_index(output_dir, df) if table_name == "relay_swimmer" else None
+        )
         curated_df, table_counts = apply_athlete_curations_to_df(
             df,
             table_name,
             rules,
             preserve_source_name_order=preserve_source_name_order,
+            club_context_by_index=club_context_by_index,
         )
         if table_name == "relay_swimmer":
             curated_df, corrected_lines = apply_relay_swimmer_line_corrections(
