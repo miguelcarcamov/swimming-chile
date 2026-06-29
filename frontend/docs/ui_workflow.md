@@ -15,10 +15,11 @@ Este documento define la forma de trabajar en el código del Frontend para Natac
    - Revisa `api_contracts.md`. Si el endpoint no existe, defínelo primero.
    - Crea/actualiza los esquemas de validación Zod en `src/lib/schemas/`.
 2. **Fixture**:
-   - Agrega un caso de prueba JSON estático en `src/test/fixtures/`.
+   - Agrega un caso de prueba JSON estático en `src/test/fixtures/` cuando la pantalla dependa de mocks.
 3. **Componentes Visuales**:
-   - Implementa los componentes requeridos y aségralos con estados de *Carga* (Loading), *Vacío* (Empty) y *Error*.
+   - Implementa los componentes requeridos y asegúralos con estados de *Carga* (Loading), *Vacío* (Empty) y *Error*.
 4. **Validación Visual**:
    - Prueba el layout de Tailwind localmente.
 5. **Cierre**:
-   - Asegura que pasen las pruebas (`npm run test`).
+   - Evalúa si la funcionalidad cambió contratos API, comportamiento de UI o reglas de presentación; si cambió, actualiza esta documentación o `api_contracts.md`.
+   - Asegura que pasen las verificaciones relevantes (`npm run lint` para cambios de UI; pruebas cuando existan o cuando se modifique lógica cubierta por tests).

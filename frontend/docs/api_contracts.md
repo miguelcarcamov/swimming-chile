@@ -83,13 +83,25 @@ Athlete detail with recent results.
       "course_type": "LCM",
       "competition_name": "Torneo Nacional 2023",
       "competition_date": "2023-11-15T00:00:00Z",
+      "seed_time_text": "00:26.10",
+      "seed_time_ms": 26100,
       "result_time_text": "00:25.40",
       "result_time_ms": 25400,
+      "points": 18,
+      "rank_position": 1,
       "status": "valid"
     }
   ]
 }
 ```
+
+The athlete profile uses `recent_results` for:
+
+- competition history;
+- seed vs result comparison (`result_time_ms - seed_time_ms`);
+- trend charts by `distance_m` + `stroke`, ordered by competition/result sequence and colored by `course_type`.
+
+Best-time cards are derived from result data in the UI and intentionally do not expose seed/delta values because the focus is the achieved best mark.
 
 ---
 
@@ -126,6 +138,65 @@ Club list.
 }
 ```
 
+### `GET /api/clubs/{id}`
+
+Club detail with current athletes and attendance matrix.
+
+**Response (200 OK):**
+
+```json
+{
+  "club": {
+    "id": 1,
+    "name": "Estadio Español",
+    "city": "Santiago",
+    "country": "Chile",
+    "total_athletes": 24,
+    "attendance_matrix": {
+      "competitions": [
+        {
+          "id": 501,
+          "name": "VI Copa Santiago Deporte 2026",
+          "date": "2026-06-15"
+        }
+      ],
+      "athletes": [
+        {
+          "athlete_id": 10,
+          "athlete_name": "Soto, Juan",
+          "competitions": [
+            {
+              "competition_id": 501,
+              "entries": 3,
+              "status": "attended"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "athletes": [
+    {
+      "id": 10,
+      "full_name": "Soto, Juan",
+      "gender": "male",
+      "birth_year": 1990,
+      "current_club_id": 1,
+      "current_club_name": "Estadio Español"
+    }
+  ]
+}
+```
+
+Attendance matrix rules consumed by the UI:
+
+- rows represent athletes whose current club is the requested club;
+- cells represent participation while representing that club;
+- `status: "attended"` is rendered as a green check;
+- `status: "no_show"` is rendered as a red X;
+- the year filter applies to both the attendance table and the attendance trend chart;
+- the attendance trend chart computes percentage as attended athletes divided by `total_athletes`.
+
 ---
 
 ## 3. Competitions
@@ -144,9 +215,13 @@ Registered competitions.
       "name": "Torneo Nacional FCHMN 2023",
       "date_start": "2023-11-15T00:00:00Z",
       "date_end": "2023-11-17T00:00:00Z",
-      "city": "Santiago",
-      "country": "Chile",
-      "pool_length": 50
+      "location": "Santiago, Chile",
+      "course_type": "LCM",
+      "competition_scope": "fchmn_local",
+      "governing_body_code": "FCHMN",
+      "governing_body_name": "Federación Chilena de Deportes Acuáticos",
+      "organizer": "FCHMN",
+      "source_url": "https://example.test/resultados.pdf"
     }
   ],
   "meta": {
@@ -170,8 +245,9 @@ Competition detail with nested event results.
     "id": 1,
     "name": "Torneo Nacional FCHMN 2023",
     "date_start": "2023-11-15T00:00:00Z",
-    "city": "Santiago",
-    "pool_length": 50
+    "location": "Santiago, Chile",
+    "course_type": "LCM",
+    "source_url": "https://example.test/resultados.pdf"
   },
   "events": [
     {
@@ -187,6 +263,9 @@ Competition detail with nested event results.
           "athlete_id": 1,
           "club_name": "Estadio Español",
           "time_text": "00:25.40",
+          "seed_time_text": "00:26.10",
+          "seed_time_ms": 26100,
+          "result_time_ms": 25400,
           "status": "valid"
         }
       ]
@@ -194,6 +273,8 @@ Competition detail with nested event results.
   ]
 }
 ```
+
+Competition result pages use `source_url` as the official source link and use seed/result fields to display the delta in seconds. Positive deltas mean the result time increased and are shown in red; negative deltas mean the result improved and are shown in green.
 
 ---
 
