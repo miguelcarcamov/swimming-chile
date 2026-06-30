@@ -398,10 +398,16 @@ export const AthleteProfilePage: React.FC = () => {
           <EmptyState title="Sin resultados" description="Este atleta no tiene tiempos registrados aún." />
         ) : (
           <div className="space-y-6">
-            {Object.entries(groupedRecent).map(([compName, results]) => (
+            {Object.entries(groupedRecent).map(([compName, results]) => {
+              const competitionMonthYear = formatMonthYear(results[0]?.competition_date);
+
+              return (
               <div key={compName} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
-                  <h3 className="font-bold text-slate-800">{compName}</h3>
+                  <h3 className="font-bold text-slate-800">
+                    {compName}
+                    {competitionMonthYear && <span className="ml-2 text-sm font-medium text-slate-500">({competitionMonthYear})</span>}
+                  </h3>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {results.map(res => (
@@ -447,7 +453,8 @@ export const AthleteProfilePage: React.FC = () => {
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
