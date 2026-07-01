@@ -313,3 +313,70 @@ Planned endpoint for future ranking screens.
   }
 }
 ```
+
+
+---## 5. Relays
+
+Relay organizer flow is club-first. The club current roster is the source of eligible athletes; Excel is optional and only filters the roster to confirmed attendees.
+
+### `GET /api/relays/club-roster`
+
+Load the current athletes for a club and enrich them with best registered database times for the selected relay distance, 50m or 100m. This endpoint does not generate a proposal; the user must explicitly trigger analysis after choosing attendees.
+
+**Query params:**
+
+- `club_id` (number, required): club whose current roster is used.
+- `relay_type` (string): generated as `4x{50|100}_{medley|freestyle}_{mixed|women|men}`.
+
+### `POST /api/relays/analyze`
+
+Analyze a relay roster. With `club_id`, the binary Excel body is optional and filters the selected club roster to confirmed attendees. Without `club_id`, the Excel is used as the participant list for backward compatibility.
+
+**Query params:**
+
+- `club_id` (number, optional): when present, use current club roster as the athlete universe.
+- `athlete_ids` (number[], optional/repeated): manually selected attendees from the club roster.
+- `filename` (string): uploaded workbook filename when body is present.
+- `relay_type` (string): relay event type.
+
+**Request:** optional binary Excel body with `Content-Type: application/octet-stream`.
+
+**Response (200 OK):**
+
+```json
+{
+  "competition_year": 2026,
+  "relay_type": {
+    "key": "4x50_medley_mixed",
+    "label": "4x50 combinado mixto",
+    "distance_m": 50,
+    "style": "medley",
+    "gender_rule": "mixed_2f_2m",
+    "slots": [{ "key": "leg_1", "label": "Espalda", "leg_order": 1, "stroke": "backstroke", "stroke_label": "Espalda" }]
+  },
+  "relay_types": [],
+  "athletes": [
+    {
+      "id": "123",
+      "core_athlete_id": 123,
+      "full_name": "SAYAGO MORENO, ALEXIS",
+      "gender": "male",
+      "birth_year": 1993,
+      "times": {
+        "freestyle": {
+          "ms": 30960,
+          "text": "00:30.96",
+          "source": "db",
+          "competition_name": "Torneo Nacional",
+          "competition_date": "2025-01-01"
+        }
+      }
+    }
+  ],
+  "proposal": [],
+  "alternatives": {},
+  "unassigned_athlete_ids": []
+}
+```
+
+Relay times come from `core.result` joined with `core.event`, `core.competition`, and `core.athlete`; `core.event.distance_m` follows the selected relay distance. The Excel does not define performance; it only filters attendance when a club is selected. Selecting a club alone only loads the roster; proposal generation happens through `POST /api/relays/analyze`.
