@@ -355,7 +355,7 @@ export const ClubProfilePage: React.FC = () => {
               <div className="mb-4 px-1">
                 <h3 className="text-lg font-bold text-slate-900">Evolución de Asistencia</h3>
                 <p className="text-sm text-slate-500">
-                  Porcentaje de atletas vigentes que participaron por competencia. El eje X usa una unidad por competencia visible.
+                  Porcentaje de atletas vigentes que participaron por competencia.
                 </p>
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">

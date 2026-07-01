@@ -7,6 +7,15 @@ from ..search import build_token_search_clause, normalize_search_text, search_to
 router = APIRouter()
 
 
+def has_membership_schema(cur) -> bool:
+    cur.execute("""
+        SELECT
+            to_regclass('club_ops.membership') IS NOT NULL
+            AND to_regclass('core.athlete_person_link') IS NOT NULL AS available
+    """)
+    return bool(cur.fetchone()["available"])
+
+
 @router.get("")
 def list_athletes(
     search: Optional[str] = Query(None),
@@ -18,6 +27,7 @@ def list_athletes(
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             offset = (page - 1) * page_size
+            use_membership_schema = has_membership_schema(cur)
             
             query = """
                 SELECT
@@ -52,9 +62,41 @@ def list_athletes(
                     params.extend(search_params)
                 
             if club_id:
-                query += " AND acc.club_id = %s"
-                count_query += " AND acc.club_id = %s"
-                params.append(club_id)
+                if use_membership_schema:
+                    club_filter = """
+                        AND (
+                            (
+                                EXISTS (
+                                    SELECT 1
+                                    FROM club_ops.membership mx
+                                    WHERE mx.club_id = %s
+                                )
+                                AND EXISTS (
+                                    SELECT 1
+                                    FROM club_ops.membership m
+                                    JOIN core.athlete_person_link apl ON apl.person_id = m.person_id
+                                    WHERE apl.athlete_id = a.id
+                                      AND m.club_id = %s
+                                      AND m.status = 'active'
+                                )
+                            )
+                            OR (
+                                NOT EXISTS (
+                                    SELECT 1
+                                    FROM club_ops.membership mx
+                                    WHERE mx.club_id = %s
+                                )
+                                AND acc.club_id = %s
+                            )
+                        )
+                    """
+                    query += club_filter
+                    count_query += club_filter
+                    params.extend([club_id, club_id, club_id, club_id])
+                else:
+                    query += " AND acc.club_id = %s"
+                    count_query += " AND acc.club_id = %s"
+                    params.append(club_id)
                 
             if gender and gender != 'all':
                 query += " AND a.gender = %s"

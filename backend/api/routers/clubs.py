@@ -6,6 +6,16 @@ from ..search import build_token_search_clause, search_tokens
 
 router = APIRouter()
 
+
+def has_membership_schema(cur) -> bool:
+    cur.execute("""
+        SELECT
+            to_regclass('club_ops.membership') IS NOT NULL
+            AND to_regclass('core.athlete_person_link') IS NOT NULL AS available
+    """)
+    return bool(cur.fetchone()["available"])
+
+
 @router.get("")
 def list_clubs(
     search: Optional[str] = Query(None),
@@ -15,14 +25,50 @@ def list_clubs(
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             offset = (page - 1) * page_size
-            
-            query = """
+            use_membership_schema = has_membership_schema(cur)
+
+            if use_membership_schema:
+                roster_count_sql = """
+                    SELECT CASE
+                        WHEN EXISTS (SELECT 1 FROM club_ops.membership mx WHERE mx.club_id = c.id)
+                        THEN (
+                            SELECT COUNT(*)
+                            FROM club_ops.membership m
+                            WHERE m.club_id = c.id
+                              AND m.status = 'active'
+                        )
+                        ELSE (
+                            SELECT COUNT(*)
+                            FROM core.athlete_current_club acc
+                            WHERE acc.club_id = c.id
+                        )
+                    END
+                """
+                roster_exists_sql = """
+                    SELECT 1
+                    WHERE EXISTS (
+                        SELECT 1
+                        FROM club_ops.membership m
+                        WHERE m.club_id = c.id
+                          AND m.status = 'active'
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                        FROM core.athlete_current_club acc
+                        WHERE acc.club_id = c.id
+                    )
+                """
+            else:
+                roster_count_sql = "SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id"
+                roster_exists_sql = "SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id"
+
+            query = f"""
                 SELECT c.id, c.name, c.city, c.region as country, c.association_name,
-                       (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
-                FROM core.club c 
-                WHERE EXISTS (SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id)
+                       ({roster_count_sql}) as total_athletes
+                FROM core.club c
+                WHERE EXISTS ({roster_exists_sql})
             """
-            count_query = "SELECT COUNT(*) as total FROM core.club c WHERE EXISTS (SELECT 1 FROM core.athlete_current_club acc WHERE acc.club_id = c.id)"
+            count_query = f"SELECT COUNT(*) as total FROM core.club c WHERE EXISTS ({roster_exists_sql})"
             params = []
             
             if search:
@@ -62,9 +108,58 @@ from fastapi import HTTPException
 def get_club(club_id: int):
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
+            use_membership_schema = has_membership_schema(cur)
+
+            if use_membership_schema:
+                roster_count_sql = """
+                    SELECT CASE
+                        WHEN EXISTS (SELECT 1 FROM club_ops.membership mx WHERE mx.club_id = c.id)
+                        THEN (
+                            SELECT COUNT(*)
+                            FROM club_ops.membership m
+                            WHERE m.club_id = c.id
+                              AND m.status = 'active'
+                        )
+                        ELSE (
+                            SELECT COUNT(*)
+                            FROM core.athlete_current_club acc
+                            WHERE acc.club_id = c.id
+                        )
+                    END
+                """
+                current_athletes_cte = """
+                    current_athletes AS (
+                        SELECT DISTINCT apl.athlete_id
+                        FROM club_ops.membership m
+                        JOIN core.athlete_person_link apl ON apl.person_id = m.person_id
+                        WHERE m.club_id = %(club_id)s
+                          AND m.status = 'active'
+
+                        UNION
+
+                        SELECT acc.athlete_id
+                        FROM core.athlete_current_club acc
+                        WHERE acc.club_id = %(club_id)s
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM club_ops.membership mx
+                              WHERE mx.club_id = %(club_id)s
+                          )
+                    ),
+                """
+            else:
+                roster_count_sql = "SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id"
+                current_athletes_cte = """
+                    current_athletes AS (
+                        SELECT acc.athlete_id
+                        FROM core.athlete_current_club acc
+                        WHERE acc.club_id = %(club_id)s
+                    ),
+                """
+
+            cur.execute(f"""
                 SELECT c.id, c.name, c.city, c.region as country, c.association_name,
-                       (SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id) as total_athletes
+                       ({roster_count_sql}) as total_athletes
                 FROM core.club c
                 WHERE c.id = %s
             """, (club_id,))
@@ -74,7 +169,9 @@ def get_club(club_id: int):
                 raise HTTPException(status_code=404, detail="Club not found")
 
             cur.execute("""
-                WITH attendance AS (
+                WITH
+                """ + current_athletes_cte + """
+                attendance AS (
                     SELECT
                         r.athlete_id,
                         a.full_name AS athlete_name,
@@ -85,11 +182,10 @@ def get_club(club_id: int):
                         BOOL_OR(COALESCE(r.status, 'unknown') NOT IN ('dns', 'scratch')) AS attended
                     FROM core.result r
                     JOIN core.athlete a ON a.id = r.athlete_id
-                    JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
+                    JOIN current_athletes ca ON ca.athlete_id = a.id
                     JOIN core.event e ON e.id = r.event_id
                     JOIN core.competition comp ON comp.id = e.competition_id
                     WHERE r.club_id = %(club_id)s
-                      AND acc.club_id = %(club_id)s
                     GROUP BY r.athlete_id, a.full_name, comp.id, comp.name, comp.start_date
 
                     UNION ALL
@@ -105,12 +201,11 @@ def get_club(club_id: int):
                     FROM core.relay_result rr
                     JOIN core.relay_result_member rrm ON rrm.relay_result_id = rr.id
                     JOIN core.athlete a ON a.id = rrm.athlete_id
-                    JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
+                    JOIN current_athletes ca ON ca.athlete_id = a.id
                     JOIN core.event e ON e.id = rr.event_id
                     JOIN core.competition comp ON comp.id = e.competition_id
                     WHERE rr.club_id = %(club_id)s
                       AND rrm.athlete_id IS NOT NULL
-                      AND acc.club_id = %(club_id)s
                     GROUP BY rrm.athlete_id, a.full_name, comp.id, comp.name, comp.start_date
                 )
                 SELECT

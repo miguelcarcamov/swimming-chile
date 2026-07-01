@@ -190,7 +190,11 @@ Club detail with current athletes and attendance matrix.
 
 Attendance matrix rules consumed by the UI:
 
-- rows represent athletes whose current club is the requested club;
+- rows represent active athletes for the requested club;
+- `core.athlete_current_club` remains the base roster because it covers all clubs;
+- when a club has `club_ops.membership` rows, membership acts as a club-specific overlay: active memberships define the official current member count, and linked active members define the athletes that can be rendered with athlete profiles/results;
+- active memberships without `core.athlete_person_link` are counted in `total_athletes` but cannot appear as athlete profile links until reviewed and linked;
+- when the membership schema does not exist, the API falls back to `core.athlete_current_club`;
 - cells represent participation while representing that club;
 - `status: "attended"` is rendered as a green check;
 - `status: "no_show"` is rendered as a red X;

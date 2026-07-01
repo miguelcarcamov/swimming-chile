@@ -22,6 +22,15 @@ from ..database import get_db_connection
 router = APIRouter()
 
 
+def has_membership_schema(cur) -> bool:
+    cur.execute("""
+        SELECT
+            to_regclass('club_ops.membership') IS NOT NULL
+            AND to_regclass('core.athlete_person_link') IS NOT NULL AS available
+    """)
+    return bool(cur.fetchone()["available"])
+
+
 def empty_times() -> dict[str, RelayTime]:
     return {stroke: RelayTime(ms=None, source="missing") for stroke in STROKES}
 
@@ -29,24 +38,60 @@ def empty_times() -> dict[str, RelayTime]:
 def load_club_roster(club_id: int) -> list[RelayAthlete]:
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT
-                    a.id,
-                    a.full_name,
-                    a.gender,
-                    a.birth_year,
-                    p.rut_normalized
-                FROM core.athlete a
-                JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
-                LEFT JOIN core.athlete_person_link apl ON apl.athlete_id = a.id
-                LEFT JOIN identity.person p ON p.id = apl.person_id
-                WHERE acc.club_id = %s
-                  AND a.gender IN ('female', 'male')
-                ORDER BY a.full_name, p.rut_normalized NULLS LAST
-                """,
-                (club_id,),
-            )
+            if has_membership_schema(cur):
+                cur.execute(
+                    """
+                    SELECT DISTINCT ON (a.id)
+                        a.id,
+                        a.full_name,
+                        a.gender,
+                        a.birth_year,
+                        p.rut_normalized
+                    FROM core.athlete a
+                    JOIN (
+                        SELECT DISTINCT apl.athlete_id, m.person_id
+                        FROM club_ops.membership m
+                        JOIN core.athlete_person_link apl ON apl.person_id = m.person_id
+                        WHERE m.club_id = %(club_id)s
+                          AND m.status = 'active'
+
+                        UNION
+
+                        SELECT acc.athlete_id, apl.person_id
+                        FROM core.athlete_current_club acc
+                        LEFT JOIN core.athlete_person_link apl ON apl.athlete_id = acc.athlete_id
+                        WHERE acc.club_id = %(club_id)s
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM club_ops.membership mx
+                              WHERE mx.club_id = %(club_id)s
+                          )
+                    ) roster ON roster.athlete_id = a.id
+                    LEFT JOIN identity.person p ON p.id = roster.person_id
+                    WHERE a.gender IN ('female', 'male')
+                    ORDER BY a.id, a.full_name, p.rut_normalized NULLS LAST
+                    """,
+                    {"club_id": club_id},
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT
+                        a.id,
+                        a.full_name,
+                        a.gender,
+                        a.birth_year,
+                        p.rut_normalized
+                    FROM core.athlete a
+                    JOIN core.athlete_current_club acc ON acc.athlete_id = a.id
+                    LEFT JOIN core.athlete_person_link apl ON apl.athlete_id = a.id
+                    LEFT JOIN identity.person p ON p.id = apl.person_id
+                    WHERE acc.club_id = %s
+                      AND a.gender IN ('female', 'male')
+                    ORDER BY a.full_name, p.rut_normalized NULLS LAST
+                    """,
+                    (club_id,),
+                )
             rows = cur.fetchall()
 
     athletes: list[RelayAthlete] = []
