@@ -1,10 +1,7 @@
 import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { useAuth } from '../../features/account/useAuth';
 
 export const MainLayout: React.FC = () => {
-  const { user } = useAuth();
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
       {/* Header Premium con gradiente sutil y blur */}
@@ -29,7 +26,6 @@ export const MainLayout: React.FC = () => {
                 { name: 'Clubes', path: '/clubs' },
                 { name: 'Calendario', path: '/calendar' },
                 { name: 'Resultados', path: '/competitions' },
-                { name: user ? 'Mi cuenta' : 'Ingresar', path: '/account' },
               ].map((item) => (
                 <NavLink
                   key={item.name}
@@ -138,19 +134,6 @@ export const MainLayout: React.FC = () => {
             <span className="text-[10px] font-medium">Resultados</span>
           </NavLink>
 
-          <NavLink
-            to="/account"
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                isActive ? 'text-blue-600' : 'text-slate-500 hover:bg-slate-50'
-              }`
-            }
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a8.25 8.25 0 0115 0" />
-            </svg>
-            <span className="text-[10px] font-medium">{user ? 'Cuenta' : 'Ingresar'}</span>
-          </NavLink>
         </div>
       </nav>
     </div>

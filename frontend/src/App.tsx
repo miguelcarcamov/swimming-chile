@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Analytics } from '@vercel/analytics/react';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './app/router';
-import { AuthProvider } from './features/account/authContext';
 
 // Configuración global del cliente de React Query
 const queryClient = new QueryClient({
@@ -18,10 +17,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-        <Analytics />
-      </AuthProvider>
+      <RouterProvider router={router} />
+      <Analytics />
     </QueryClientProvider>
   );
 }

@@ -9,7 +9,6 @@ import { ClubProfilePage } from '../features/clubs/pages/ClubProfilePage';
 import { CompetitionsPage } from '../features/competitions/pages/CompetitionsPage';
 import { CompetitionProfilePage } from '../features/competitions/pages/CompetitionProfilePage';
 import { RelaysPage } from '../features/relays/pages/RelaysPage';
-import { AccountPage } from '../features/account/pages/AccountPage';
 import { HomePage } from '../features/home/pages/HomePage';
 
 export const router = createBrowserRouter([
@@ -52,10 +51,6 @@ export const router = createBrowserRouter([
       {
         path: 'relays',
         element: <RelaysPage />,
-      },
-      {
-        path: 'account',
-        element: <AccountPage />,
       },
     ],
   },
