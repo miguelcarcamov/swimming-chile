@@ -32,6 +32,11 @@ app.include_router(relays.router, prefix="/api/relays", tags=["relays"])
 app.include_router(account.router, prefix="/api/me", tags=["account"])
 
 
+@app.get("/")
+def root():
+    return {"status": "ok", "service": "SwimStats Chile API"}
+
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "message": "API running"}
