@@ -92,36 +92,45 @@ export const AthletesPage: React.FC = () => {
             <div className="space-y-4">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <ul className="divide-y divide-slate-200">
-                  {data.data.map((athlete) => (
-                    <li key={athlete.id} className="hover:bg-slate-50 transition-colors">
-                      <Link to={`/athletes/${athlete.id}`} className="block p-4 sm:px-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <p className="text-sm font-semibold text-blue-600 truncate">{athlete.full_name}</p>
-                            <p className="text-sm text-slate-500 mt-1 flex items-center gap-2">
-                              <span className="capitalize">{athlete.gender}</span>
-                              {athlete.birth_year && (
-                                <>
-                                  <span>&bull;</span>
-                                  <span>Nacido en {athlete.birth_year}</span>
-                                </>
+                  {data.data.map((athlete) => {
+                    const clubName = athlete.current_club_name || athlete.club_name;
+
+                    return (
+                      <li key={athlete.id} className="hover:bg-slate-50 transition-colors">
+                        <Link to={`/athletes/${athlete.id}`} className="block p-4 sm:px-6">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex flex-col">
+                              <p className="truncate text-sm font-semibold text-blue-600">{athlete.full_name}</p>
+                              <p className="mt-1 flex items-center gap-2 text-sm text-slate-500">
+                                <span className="capitalize">{athlete.gender}</span>
+                                {athlete.birth_year && (
+                                  <>
+                                    <span>&bull;</span>
+                                    <span>Nacido en {athlete.birth_year}</span>
+                                  </>
+                                )}
+                              </p>
+                              {clubName && (
+                                <p className="mt-1 truncate text-xs font-medium text-slate-500 md:hidden">
+                                  {clubName}
+                                </p>
                               )}
-                            </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-4">
+                              {clubName && (
+                                <span className="hidden items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 md:inline-flex">
+                                  {clubName}
+                                </span>
+                              )}
+                              <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            {athlete.club_name && (
-                              <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                                {athlete.club_name}
-                              </span>
-                            )}
-                            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </Link>
-                    </li>
-                  ))}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
