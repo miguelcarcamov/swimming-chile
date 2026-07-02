@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const primaryActions = [
   {
-    title: 'Buscar atletas',
+    title: 'Resultados por atleta',
     description: 'Encuentra nadadores y revisa su historial competitivo.',
     to: '/athletes',
   },
@@ -13,7 +13,7 @@ const primaryActions = [
     to: '/clubs',
   },
   {
-    title: 'Resultados',
+    title: 'Resultados por competencia',
     description: 'Consulta competencias y resultados cargados.',
     to: '/competitions',
   },
@@ -46,18 +46,18 @@ export const HomePage: React.FC = () => (
               to="/athletes"
               className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
             >
-              Buscar atletas
+              Ver resultados por atleta
             </Link>
             <Link
               to="/competitions"
               className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
             >
-              Ver resultados
+              Ver resultados por competencia
             </Link>
           </div>
         </div>
 
-        <div className="rounded-2xl bg-gradient-to-br from-blue-50 via-slate-50 to-cyan-50 p-6 ring-1 ring-slate-200">
+        <div className="hidden rounded-2xl bg-gradient-to-br from-blue-50 via-slate-50 to-cyan-50 p-6 ring-1 ring-slate-200 md:block">
           <div className="grid h-full gap-4">
             <div className="rounded-2xl bg-white/80 p-4 shadow-sm">
               <p className="text-sm font-semibold text-slate-900">Datos centralizados</p>
@@ -76,7 +76,7 @@ export const HomePage: React.FC = () => (
       </div>
     </section>
 
-    <section className="grid gap-4 md:grid-cols-4">
+    <section className="hidden gap-4 md:grid md:grid-cols-4">
       {primaryActions.map(action => (
         <Link
           key={action.to}
