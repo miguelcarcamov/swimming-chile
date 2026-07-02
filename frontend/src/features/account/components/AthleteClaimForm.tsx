@@ -62,7 +62,7 @@ export const AthleteClaimForm: React.FC<AthleteClaimFormProps> = ({ athleteId, c
         <textarea
           value={evidence}
           onChange={(event) => setEvidence(event.target.value)}
-          placeholder="Cuentanos cómo podemos verificar que eres esta persona..."
+          placeholder="Cuéntanos cómo podemos verificar que eres esta persona..."
           rows={3}
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-500"
         />

@@ -117,7 +117,7 @@ export const AccountPage: React.FC = () => {
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="font-bold text-slate-900">Atletas</h3>
               {favoritesQuery.data.athletes.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Todavía no guardaste atletas.</p>
+                <p className="mt-2 text-sm text-slate-500">Todavía no has guardado atletas.</p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {favoritesQuery.data.athletes.map((athlete) => (
@@ -133,7 +133,7 @@ export const AccountPage: React.FC = () => {
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="font-bold text-slate-900">Clubes</h3>
               {favoritesQuery.data.clubs.length === 0 ? (
-                <p className="mt-2 text-sm text-slate-500">Todavía no guardaste clubes.</p>
+                <p className="mt-2 text-sm text-slate-500">Todavía no has guardado clubes.</p>
               ) : (
                 <ul className="mt-3 space-y-2">
                   {favoritesQuery.data.clubs.map((club) => (

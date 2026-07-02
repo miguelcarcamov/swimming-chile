@@ -142,8 +142,7 @@ def get_club(club_id: int):
                         JOIN core.athlete_current_club acc
                           ON acc.athlete_id = a.id
                          AND acc.club_id = %(club_id)s
-                        WHERE 1=1
-                          AND NOT EXISTS (
+                        WHERE NOT EXISTS (
                               SELECT 1
                               FROM club_ops.membership mx
                               WHERE mx.club_id = %(club_id)s
@@ -159,7 +158,6 @@ def get_club(club_id: int):
                         JOIN core.athlete_current_club acc
                           ON acc.athlete_id = a.id
                          AND acc.club_id = %(club_id)s
-                        WHERE 1=1
                     ),
                 """
 

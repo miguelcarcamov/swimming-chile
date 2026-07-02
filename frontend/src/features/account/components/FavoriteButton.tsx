@@ -66,7 +66,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({ targetType, targ
           : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
       }`}
     >
-      {isFavorite ? 'â˜… Guardado' : 'â˜† Guardar favorito'}
+      {isFavorite ? '★ Guardado' : '☆ Guardar favorito'}
     </button>
   );
 };
