@@ -6,6 +6,8 @@ import { athleteService } from '../../athletes/api/athleteService';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { EmptyState } from '../../../components/ui/EmptyState';
+import { FavoriteButton } from '../../account/components/FavoriteButton';
+import { ProfileContributionForm } from '../../account/components/ProfileContributionForm';
 
 const formatCompetitionMonthYear = (date?: string | null) => {
   if (!date) return null;
@@ -210,7 +212,7 @@ export const ClubProfilePage: React.FC = () => {
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center font-bold text-4xl shadow-sm flex-shrink-0">
             {club.name.charAt(0)}
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{club.name}</h1>
             <div className="mt-2 flex flex-wrap gap-3">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-100 text-slate-700 border border-slate-200">
@@ -225,8 +227,13 @@ export const ClubProfilePage: React.FC = () => {
               </span>
             </div>
           </div>
+          <div className="md:ml-auto">
+            <FavoriteButton targetType="club" targetId={club.id} />
+          </div>
         </div>
       </div>
+
+      <ProfileContributionForm targetType="club" targetId={club.id} />
 
       {/* Asistencia por Competencia */}
       {attendanceMatrix && attendanceMatrix.competitions.length > 0 && attendanceMatrix.athletes.length > 0 && (

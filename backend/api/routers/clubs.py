@@ -137,9 +137,12 @@ def get_club(club_id: int):
 
                         UNION
 
-                        SELECT acc.athlete_id
-                        FROM core.athlete_current_club acc
-                        WHERE acc.club_id = %(club_id)s
+                        SELECT a.id AS athlete_id
+                        FROM core.athlete a
+                        JOIN core.athlete_current_club acc
+                          ON acc.athlete_id = a.id
+                         AND acc.club_id = %(club_id)s
+                        WHERE 1=1
                           AND NOT EXISTS (
                               SELECT 1
                               FROM club_ops.membership mx
@@ -151,9 +154,12 @@ def get_club(club_id: int):
                 roster_count_sql = "SELECT count(*) FROM core.athlete_current_club acc WHERE acc.club_id = c.id"
                 current_athletes_cte = """
                     current_athletes AS (
-                        SELECT acc.athlete_id
-                        FROM core.athlete_current_club acc
-                        WHERE acc.club_id = %(club_id)s
+                        SELECT a.id AS athlete_id
+                        FROM core.athlete a
+                        JOIN core.athlete_current_club acc
+                          ON acc.athlete_id = a.id
+                         AND acc.club_id = %(club_id)s
+                        WHERE 1=1
                     ),
                 """
 

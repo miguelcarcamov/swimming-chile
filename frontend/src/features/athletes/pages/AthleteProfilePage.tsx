@@ -8,6 +8,9 @@ import { EmptyState } from '../../../components/ui/EmptyState';
 import { CourseBadge } from '../../../components/ui/CourseBadge';
 import { getCourseMeta } from '../../../lib/courseMeta';
 import type { CourseType } from '../../../lib/schemas/canon';
+import { FavoriteButton } from '../../account/components/FavoriteButton';
+import { AthleteClaimForm } from '../../account/components/AthleteClaimForm';
+import { ProfileContributionForm } from '../../account/components/ProfileContributionForm';
 
 const strokeTranslations: Record<string, string> = {
   freestyle: 'Libre',
@@ -280,7 +283,7 @@ export const AthleteProfilePage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">{athlete.full_name}</h1>
             <div className="mt-2 flex flex-wrap gap-3">
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100 capitalize">
@@ -298,7 +301,18 @@ export const AthleteProfilePage: React.FC = () => {
               )}
             </div>
           </div>
+          <div className="md:ml-auto">
+            <FavoriteButton targetType="athlete" targetId={athlete.id} />
+          </div>
         </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AthleteClaimForm
+          athleteId={athlete.id}
+          currentClubName={athlete.current_club_name || athlete.club_name}
+        />
+        <ProfileContributionForm targetType="athlete" targetId={athlete.id} />
       </div>
 
       {/* Mejores Tiempos */}

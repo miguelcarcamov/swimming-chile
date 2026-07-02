@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import athletes, clubs, competitions, relays
+from .routers import account, athletes, clubs, competitions, relays
 
 app = FastAPI(title="SwimStats Chile API", version="0.1.0")
 
@@ -29,6 +29,7 @@ app.include_router(athletes.router, prefix="/api/athletes", tags=["athletes"])
 app.include_router(clubs.router, prefix="/api/clubs", tags=["clubs"])
 app.include_router(competitions.router, prefix="/api/competitions", tags=["competitions"])
 app.include_router(relays.router, prefix="/api/relays", tags=["relays"])
+app.include_router(account.router, prefix="/api/me", tags=["account"])
 
 
 @app.get("/api/health")
