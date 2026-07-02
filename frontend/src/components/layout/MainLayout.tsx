@@ -25,7 +25,7 @@ export const MainLayout: React.FC = () => {
             {/* Navegación Principal */}
             <nav className="hidden md:flex space-x-1">
               {[
-                { name: 'Atletas', path: '/' },
+                { name: 'Atletas', path: '/athletes' },
                 { name: 'Clubes', path: '/clubs' },
                 { name: 'Calendario', path: '/calendar' },
                 { name: 'Resultados', path: '/competitions' },
@@ -83,7 +83,7 @@ export const MainLayout: React.FC = () => {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-slate-200 pb-safe">
         <div className="flex justify-around items-center h-16 px-2">
           <NavLink
-            to="/"
+            to="/athletes"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center w-full h-full space-y-1 ${
                 isActive ? 'text-blue-600' : 'text-slate-500 hover:bg-slate-50'

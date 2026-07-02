@@ -10,6 +10,7 @@ import { CompetitionsPage } from '../features/competitions/pages/CompetitionsPag
 import { CompetitionProfilePage } from '../features/competitions/pages/CompetitionProfilePage';
 import { RelaysPage } from '../features/relays/pages/RelaysPage';
 import { AccountPage } from '../features/account/pages/AccountPage';
+import { HomePage } from '../features/home/pages/HomePage';
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,10 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <HomePage />,
+      },
+      {
+        path: 'athletes',
         element: <AthletesPage />,
       },
       {
