@@ -294,8 +294,18 @@ def club_roster(club_id: int, relay_type: str, attendance_file_bytes: bytes = b"
     return apply_db_times_to_roster(roster, relay_type)
 
 
-def analyze_club_roster(club_id: int, relay_type: str, attendance_file_bytes: bytes = b"", athlete_ids: list[int] | None = None):
-    return analyze_athletes(club_roster(club_id, relay_type, attendance_file_bytes, athlete_ids), relay_type)
+def analyze_club_roster(
+    club_id: int,
+    relay_type: str,
+    attendance_file_bytes: bytes = b"",
+    athlete_ids: list[int] | None = None,
+    excluded_category_keys: set[str] | None = None,
+):
+    return analyze_athletes(
+        club_roster(club_id, relay_type, attendance_file_bytes, athlete_ids),
+        relay_type,
+        excluded_category_keys=excluded_category_keys,
+    )
 
 
 @router.get("/club-roster")
@@ -327,16 +337,18 @@ async def analyze_relays(
     relay_type: str = Query("4x50_medley_mixed"),
     club_id: int | None = Query(None, ge=1),
     athlete_ids: list[int] = Query(default=[]),
+    excluded_category_keys: list[str] = Query(default=[]),
     file_bytes: bytes = Body(default=b"", media_type="application/octet-stream"),
 ):
     try:
+        excluded_categories = set(excluded_category_keys)
         if club_id is not None:
-            return analyze_club_roster(club_id, relay_type, file_bytes, athlete_ids)
+            return analyze_club_roster(club_id, relay_type, file_bytes, athlete_ids, excluded_categories)
         if not file_bytes:
             raise HTTPException(status_code=400, detail="Debes seleccionar un club o subir un Excel de asistencia")
         if not filename.lower().endswith((".xlsx", ".xlsm")):
             raise HTTPException(status_code=400, detail="El archivo debe ser Excel .xlsx o .xlsm")
         db_best_times = load_db_best_times(file_bytes, relay_type)
-        return analyze_upload(filename, BytesIO(file_bytes), relay_type=relay_type, db_best_times=db_best_times)
+        return analyze_upload(filename, BytesIO(file_bytes), relay_type=relay_type, db_best_times=db_best_times, excluded_category_keys=excluded_categories)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

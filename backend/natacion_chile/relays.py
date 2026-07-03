@@ -501,8 +501,12 @@ def athlete_to_dict(athlete: RelayAthlete) -> dict[str, object]:
     }
 
 
-def analyze_athletes(athletes: list[RelayAthlete], relay_type: str = "4x50_medley_mixed") -> dict[str, object]:
-    proposal, alternatives = propose_lineups(athletes, relay_type)
+def analyze_athletes(
+    athletes: list[RelayAthlete],
+    relay_type: str = "4x50_medley_mixed",
+    excluded_category_keys: set[str] | None = None,
+) -> dict[str, object]:
+    proposal, alternatives = propose_lineups(athletes, relay_type, excluded_category_keys=excluded_category_keys)
     used = {leg.athlete_id for lineup in proposal for leg in lineup.legs if leg.athlete_id}
     selected_type = relay_type_to_dict(relay_type)
     return {
@@ -716,9 +720,14 @@ def generate_candidate_lineups(athletes: list[RelayAthlete], relay_type: str, pe
     return candidates
 
 
-def propose_lineups(athletes: list[RelayAthlete], relay_type: str) -> tuple[list[RelayLineup], dict[str, list[RelayLineup]]]:
+def propose_lineups(
+    athletes: list[RelayAthlete],
+    relay_type: str,
+    excluded_category_keys: set[str] | None = None,
+) -> tuple[list[RelayLineup], dict[str, list[RelayLineup]]]:
     candidates_by_category = generate_candidate_lineups(athletes, relay_type)
-    category_keys = [key for key, *_ in RELAY_CATEGORIES]
+    excluded_category_keys = excluded_category_keys or set()
+    category_keys = [key for key, *_ in RELAY_CATEGORIES if key not in excluded_category_keys]
 
     def score(lineups: list[RelayLineup]) -> tuple[int, int]:
         return (len(lineups), sum(lineup.total_time_ms or 10**12 for lineup in lineups))
@@ -745,7 +754,7 @@ def propose_lineups(athletes: list[RelayAthlete], relay_type: str) -> tuple[list
         memo[state_key] = best_suffix
         return best_suffix
 
-    return dfs(0, frozenset()), {key: value[:5] for key, value in candidates_by_category.items()}
+    return dfs(0, frozenset()), {key: candidates_by_category.get(key, [])[:5] for key in category_keys}
 
 
 def relay_type_to_dict(key: str) -> dict[str, object]:
@@ -763,15 +772,31 @@ def relay_type_to_dict(key: str) -> dict[str, object]:
     }
 
 
-def analyze_entries(file: BinaryIO | str | Path, relay_type: str = "4x50_medley_mixed", db_best_times: dict[tuple[str, str, int | None, str], RelayTime] | None = None) -> dict[str, object]:
+def analyze_entries(
+    file: BinaryIO | str | Path,
+    relay_type: str = "4x50_medley_mixed",
+    db_best_times: dict[tuple[str, str, int | None, str], RelayTime] | None = None,
+    excluded_category_keys: set[str] | None = None,
+) -> dict[str, object]:
     athletes = parse_entries_workbook(file)
     if db_best_times is not None:
         athletes = enrich_athletes_with_db_times(athletes, db_best_times)
-    return analyze_athletes(athletes, relay_type)
+    return analyze_athletes(athletes, relay_type, excluded_category_keys=excluded_category_keys)
 
 
-def analyze_upload(filename: str, upload: BinaryIO, relay_type: str = "4x50_medley_mixed", db_best_times: dict[tuple[str, str, int | None, str], RelayTime] | None = None) -> dict[str, object]:
+def analyze_upload(
+    filename: str,
+    upload: BinaryIO,
+    relay_type: str = "4x50_medley_mixed",
+    db_best_times: dict[tuple[str, str, int | None, str], RelayTime] | None = None,
+    excluded_category_keys: set[str] | None = None,
+) -> dict[str, object]:
     # On Windows, NamedTemporaryFile keeps an exclusive handle that prevents
     # openpyxl from reopening the same path, so analyze uploads in memory.
     _ = filename
-    return analyze_entries(BytesIO(upload.read()), relay_type=relay_type, db_best_times=db_best_times)
+    return analyze_entries(
+        BytesIO(upload.read()),
+        relay_type=relay_type,
+        db_best_times=db_best_times,
+        excluded_category_keys=excluded_category_keys,
+    )

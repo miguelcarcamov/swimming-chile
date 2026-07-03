@@ -42,13 +42,14 @@ export const relayService = {
 
   async analyzeEntries(
     relayType: string,
-    options: { file?: File; clubId?: string; athleteIds?: string[] } = {},
+    options: { file?: File; clubId?: string; athleteIds?: string[]; excludedCategoryKeys?: string[] } = {},
   ): Promise<RelayAnalysisResponse> {
     const url = new URL(`${API_BASE_URL}/api/relays/analyze`);
     url.searchParams.set('filename', options.file?.name ?? 'attendance.xlsx');
     url.searchParams.set('relay_type', relayType);
     if (options.clubId) url.searchParams.set('club_id', options.clubId);
     for (const athleteId of options.athleteIds ?? []) url.searchParams.append('athlete_ids', athleteId);
+    for (const categoryKey of options.excludedCategoryKeys ?? []) url.searchParams.append('excluded_category_keys', categoryKey);
 
     const response = await fetch(url, {
       method: 'POST',
