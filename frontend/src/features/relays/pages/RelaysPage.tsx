@@ -229,13 +229,13 @@ function AthleteCard({
         event.dataTransfer.setData('application/json', JSON.stringify(dragPayload));
         event.dataTransfer.effectAllowed = 'move';
       }}
-      className={`rounded-lg border p-3 shadow-sm ${unavailable ? 'border-red-200 bg-red-50' : assignedElsewhere ? 'border-red-200 bg-red-50/70' : 'border-slate-200 bg-white'} ${dragPayload && !unavailable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`rounded-lg border p-2 shadow-sm sm:p-3 ${unavailable ? 'border-red-200 bg-red-50' : assignedElsewhere ? 'border-red-200 bg-red-50/70' : 'border-slate-200 bg-white'} ${dragPayload && !unavailable ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{athlete.full_name}</p>
-          <p className="mt-1 text-xs text-slate-500">
-            {genderLabel(athlete.gender)} · {athlete.age ?? 'sin edad'} años · atleta #{athlete.core_athlete_id ?? athlete.id}
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold text-slate-900 sm:text-sm">{athlete.full_name}</p>
+          <p className="mt-1 text-[11px] text-slate-500 sm:text-xs">
+            {genderLabel(athlete.gender)} · {athlete.age ?? 'sin edad'} años <span className="hidden sm:inline">· atleta #{athlete.core_athlete_id ?? athlete.id}</span>
           </p>
           {assignedElsewhere && <p className="mt-1 text-xs font-semibold text-red-700">Ya está considerado en otro relevo.</p>}
           {unavailable && <p className="mt-1 text-xs font-semibold text-red-700">Marcado como no disponible.</p>}
@@ -246,7 +246,7 @@ function AthleteCard({
           </button>
         )}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-1 text-xs text-slate-600">
+      <div className="mt-2 grid grid-cols-1 gap-1 text-[11px] text-slate-600 sm:mt-3 sm:grid-cols-2 sm:text-xs">
         {Object.entries(athlete.times).map(([stroke, time]) => {
           const isConsidered = stroke === consideredStroke;
           const displayTime = isConsidered ? (consideredTimeText ?? time.text ?? '') : (time.text ?? '');
@@ -254,7 +254,7 @@ function AthleteCard({
           return (
             <div
               key={stroke}
-              className={`rounded border px-2 py-1 ${
+              className={`rounded border px-2 py-1 ${!isConsidered ? 'hidden sm:block' : ''} ${
                 isConsidered
                   ? 'border-blue-300 bg-blue-50 font-semibold text-blue-800 ring-1 ring-blue-100'
                   : 'border-transparent bg-slate-50 text-slate-600'
@@ -836,25 +836,25 @@ export const RelaysPage: React.FC = () => {
               const evaluation = evaluateRelay(relay, slots, relayType, athletesById, analysis.categories, manualTimes, unavailableAthleteIds, assignedIdCounts, categoryKeyCounts);
               const isFixed = fixedRelayIds.has(relay.id);
               return (
-                <article key={relay.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${isFixed ? 'border-blue-300 ring-1 ring-blue-100' : 'border-slate-200'}`}>
-                  <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <article key={relay.id} className={`rounded-2xl border bg-white p-3 shadow-sm sm:p-4 ${isFixed ? 'border-blue-300 ring-1 ring-blue-100' : 'border-slate-200'}`}>
+                  <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-lg font-semibold text-slate-900">Relevo {index + 1}</h3>
+                        <h3 className="text-base font-semibold text-slate-900 sm:text-lg">Relevo {index + 1}</h3>
                         {isFixed && <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">Fijado</span>}
                       </div>
-                      <p className="text-sm text-slate-500">{evaluation.category ? `Categoría ${evaluation.category.label}` : 'Sin categoría'} · suma edades {evaluation.ageSum ?? 'sin datos'}</p>
+                      <p className="text-xs text-slate-500 sm:text-sm">{evaluation.category ? `Categoría ${evaluation.category.label}` : 'Sin categoría'} · suma edades {evaluation.ageSum ?? 'sin datos'}</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className={`rounded-full px-3 py-1 text-sm font-semibold ${evaluation.isValid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{evaluation.isValid ? 'Válido' : 'Revisar'}</span>
-                      <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">{evaluation.totalTimeText ?? 'sin tiempo'}</span>
-                      <button type="button" onClick={() => toggleFixedRelay(relay.id)} className={`rounded-full px-3 py-1 text-sm font-semibold cursor-pointer ${isFixed ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold sm:px-3 sm:text-sm ${evaluation.isValid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{evaluation.isValid ? 'Válido' : 'Revisar'}</span>
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 sm:px-3 sm:text-sm">{evaluation.totalTimeText ?? 'sin tiempo'}</span>
+                      <button type="button" onClick={() => toggleFixedRelay(relay.id)} className={`cursor-pointer rounded-full px-2 py-1 text-xs font-semibold sm:px-3 sm:text-sm ${isFixed ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
                         {isFixed ? 'Liberar' : 'Fijar'}
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
                     {slots.map((slot) => {
                       const athleteId = relay.assignments[slot.key];
                       const athlete = athleteId ? athletesById.get(athleteId) ?? null : null;
@@ -862,9 +862,9 @@ export const RelaysPage: React.FC = () => {
                       const resolvedTime = getSlotTimeMs(athlete, slot, relay.id, manualTimes);
                       const slotManualKey = manualTimeKey(relay.id, slot.key);
                       return (
-                        <div key={slot.key} onDragOver={(event) => { if (!isFixed) event.preventDefault(); }} onDrop={(event) => { if (!isFixed) handleDrop(event, relay.id, slot.key); }} className={`min-h-36 rounded-xl border-2 border-dashed p-3 transition ${isFixed ? 'border-blue-100 bg-blue-50/40' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/50'}`}>
-                          <div className="mb-2 flex items-center justify-between">
-                            <p className="text-sm font-semibold text-slate-700">{slot.label}</p>
+                        <div key={slot.key} onDragOver={(event) => { if (!isFixed) event.preventDefault(); }} onDrop={(event) => { if (!isFixed) handleDrop(event, relay.id, slot.key); }} className={`min-h-0 rounded-xl border-2 border-dashed p-2 transition sm:min-h-36 sm:p-3 ${isFixed ? 'border-blue-100 bg-blue-50/40' : 'border-slate-200 bg-slate-50 hover:border-blue-300 hover:bg-blue-50/50'}`}>
+                          <div className="mb-1 flex items-center justify-between sm:mb-2">
+                            <p className="text-xs font-semibold text-slate-700 sm:text-sm">{slot.label}</p>
                             {athlete && !isFixed && <button type="button" onClick={() => clearLeg(relay.id, slot.key)} className="text-xs font-medium text-slate-400 hover:text-red-600">Quitar</button>}
                           </div>
 
@@ -872,7 +872,7 @@ export const RelaysPage: React.FC = () => {
                             value={athleteId ?? ''}
                             onChange={(event) => setSlotAssignment(relay.id, slot.key, event.target.value || null)}
                             disabled={isFixed}
-                            className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-2 py-2 text-sm text-slate-700"
+                            className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 sm:mb-3 sm:py-2 sm:text-sm"
                           >
                             <option value="">Seleccionar atleta...</option>
                             {genderEligibleAthletes.map((optionAthlete) => {
@@ -900,7 +900,7 @@ export const RelaysPage: React.FC = () => {
                                   value={manualTimes[slotManualKey] ?? ''}
                                   onChange={(event) => setManualTimes((current) => ({ ...current, [slotManualKey]: event.target.value }))}
                                   placeholder="Tiempo manual ej. 00:35.20"
-                                  disabled={isFixed}
+                                  hidden={isFixed}
                                   className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-2 py-2 text-xs font-normal text-slate-700 outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
                                 />
                               ) : null}
