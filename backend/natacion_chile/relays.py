@@ -526,6 +526,27 @@ def analyze_athletes(
     }
 
 
+def propose_category_response(athletes: list[RelayAthlete], relay_type: str, category_key: str) -> dict[str, object]:
+    proposal, alternatives = propose_category_lineups(athletes, relay_type, category_key)
+    used = {leg.athlete_id for lineup in proposal for leg in lineup.legs if leg.athlete_id}
+    selected_type = relay_type_to_dict(relay_type)
+    return {
+        "competition_year": COMPETITION_YEAR,
+        "relay_type": selected_type,
+        "relay_types": [relay_type_to_dict(key) for key in RELAY_TYPES],
+        "relay_event": selected_type["label"],
+        "strokes": [{"key": stroke, "label": STROKE_LABELS[stroke]} for stroke in STROKES],
+        "categories": [
+            {"key": key, "label": label, "min_age_sum": minimum, "max_age_sum": maximum}
+            for key, label, minimum, maximum in RELAY_CATEGORIES
+        ],
+        "athletes": [athlete_to_dict(athlete) for athlete in athletes],
+        "proposal": [lineup_to_dict(lineup) for lineup in proposal],
+        "alternatives": {key: [lineup_to_dict(lineup) for lineup in value] for key, value in alternatives.items()},
+        "unassigned_athlete_ids": [athlete.id for athlete in athletes if athlete.id not in used],
+    }
+
+
 def roster_response(athletes: list[RelayAthlete], relay_type: str = "4x50_medley_mixed") -> dict[str, object]:
     selected_type = relay_type_to_dict(relay_type)
     return {
@@ -684,7 +705,12 @@ def eligible_groups(athletes: list[RelayAthlete], relay_type: str) -> Iterable[t
         yield from combinations(men, 4)
 
 
-def generate_candidate_lineups(athletes: list[RelayAthlete], relay_type: str, per_category_limit: int = 40) -> dict[str, list[RelayLineup]]:
+def generate_candidate_lineups(
+    athletes: list[RelayAthlete],
+    relay_type: str,
+    per_category_limit: int = 40,
+    allowed_category_keys: set[str] | None = None,
+) -> dict[str, list[RelayLineup]]:
     candidates: dict[str, list[RelayLineup]] = {key: [] for key, *_ in RELAY_CATEGORIES}
     slots = relay_slots(relay_type)
     for selected_tuple in eligible_groups(athletes, relay_type):
@@ -692,6 +718,8 @@ def generate_candidate_lineups(athletes: list[RelayAthlete], relay_type: str, pe
         age_sum = sum(athlete.age or 0 for athlete in selected)
         category_key, _ = relay_category(age_sum)
         if category_key is None:
+            continue
+        if allowed_category_keys is not None and category_key not in allowed_category_keys:
             continue
         best_lineup: RelayLineup | None = None
         for ordered in permutations(selected, 4):
@@ -725,9 +753,9 @@ def propose_lineups(
     relay_type: str,
     excluded_category_keys: set[str] | None = None,
 ) -> tuple[list[RelayLineup], dict[str, list[RelayLineup]]]:
-    candidates_by_category = generate_candidate_lineups(athletes, relay_type)
     excluded_category_keys = excluded_category_keys or set()
     category_keys = [key for key, *_ in RELAY_CATEGORIES if key not in excluded_category_keys]
+    candidates_by_category = generate_candidate_lineups(athletes, relay_type, allowed_category_keys=set(category_keys))
 
     def score(lineups: list[RelayLineup]) -> tuple[int, int]:
         return (len(lineups), sum(lineup.total_time_ms or 10**12 for lineup in lineups))
@@ -755,6 +783,14 @@ def propose_lineups(
         return best_suffix
 
     return dfs(0, frozenset()), {key: candidates_by_category.get(key, [])[:5] for key in category_keys}
+
+
+def propose_category_lineups(athletes: list[RelayAthlete], relay_type: str, category_key: str) -> tuple[list[RelayLineup], dict[str, list[RelayLineup]]]:
+    if category_key not in {key for key, *_ in RELAY_CATEGORIES}:
+        raise ValueError(f"Categoría de relevo no soportada: {category_key}")
+    candidates_by_category = generate_candidate_lineups(athletes, relay_type, allowed_category_keys={category_key})
+    candidates = candidates_by_category.get(category_key, [])
+    return candidates[:1], {category_key: candidates[:5]}
 
 
 def relay_type_to_dict(key: str) -> dict[str, object]:

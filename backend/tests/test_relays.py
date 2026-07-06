@@ -22,6 +22,7 @@ from natacion_chile.relays import (
     normalize_rut,
     roster_response,
     propose_lineups,
+    propose_category_lineups,
     relay_category,
     relay_type_to_dict,
 )
@@ -190,6 +191,18 @@ def test_propose_lineups_returns_valid_mixed_relay_without_reuse(tmp_path):
     assert {leg.gender for leg in lineup.legs} == {"female", "male"}
     assert len({leg.athlete_id for leg in lineup.legs}) == 4
     assert alternatives["120-159"]
+
+
+def test_propose_category_lineups_limits_search_to_requested_category(tmp_path):
+    path = tmp_path / "entries.xlsx"
+    make_entries_workbook(path)
+    athletes = parse_entries_workbook(path)
+
+    proposal, alternatives = propose_category_lineups(athletes, "4x50_medley_mixed", "120-159")
+
+    assert len(proposal) == 1
+    assert proposal[0].validation.category_key == "120-159"
+    assert set(alternatives) == {"120-159"}
 
 
 def test_db_times_replace_excel_times_for_relay_analysis(tmp_path):

@@ -78,6 +78,16 @@ function assignedAthleteIdsFromRelays(relays: EditableRelay[]): Set<string> {
   return new Set(relays.flatMap((relay) => Object.values(relay.assignments)).filter((value): value is string => value !== null));
 }
 
+function relaysWithoutCategory(
+  relays: EditableRelay[],
+  categoryKey: string,
+  slots: RelaySlot[],
+  athletesById: Map<string, RelayAthlete>,
+  categories: RelayAnalysisResponse['categories'],
+): EditableRelay[] {
+  return relays.filter((relay) => relayCategoryKey(relay, slots, athletesById, categories) !== categoryKey);
+}
+
 function relayCategoryKey(
   relay: EditableRelay,
   slots: RelaySlot[],
@@ -97,11 +107,6 @@ function mergeRelayAthletes(current: RelayAthlete[], incoming: RelayAthlete[]): 
   const byId = new Map(current.map((athlete) => [athlete.id, athlete]));
   for (const athlete of incoming) byId.set(athlete.id, athlete);
   return Array.from(byId.values());
-}
-
-function keepManualTimesForRelays(manualTimes: Record<string, string>, relays: EditableRelay[], slots: RelaySlot[]): Record<string, string> {
-  const keysToKeep = new Set(relays.flatMap((relay) => slots.map((slot) => manualTimeKey(relay.id, slot.key))));
-  return Object.fromEntries(Object.entries(manualTimes).filter(([key]) => keysToKeep.has(key)));
 }
 
 function genderLabel(gender: RelayAthlete['gender'] | null): string {
@@ -287,8 +292,11 @@ export const RelaysPage: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [isSetupCollapsed, setIsSetupCollapsed] = React.useState(false);
   const [isAttendanceCollapsed, setIsAttendanceCollapsed] = React.useState(false);
+  const [showSetupHelp, setShowSetupHelp] = React.useState(false);
+  const [proposalStatus, setProposalStatus] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [toastMessage, setToastMessage] = React.useState<string | null>(null);
+  const proposalAbortController = React.useRef<AbortController | null>(null);
 
   const relayTypes = analysis?.relay_types ?? DEFAULT_RELAY_TYPES;
   const relayType = analysis?.relay_type ?? relayTypes.find((item) => item.key === selectedRelayType) ?? DEFAULT_RELAY_TYPES[0];
@@ -340,11 +348,6 @@ export const RelaysPage: React.FC = () => {
   const fixedRelays = React.useMemo(
     () => relays.filter((relay) => fixedRelayIds.has(relay.id)),
     [relays, fixedRelayIds],
-  );
-
-  const fixedAthleteIds = React.useMemo(
-    () => assignedAthleteIdsFromRelays(fixedRelays),
-    [fixedRelays],
   );
 
   const fixedCategoryKeys = React.useMemo(
@@ -482,7 +485,7 @@ export const RelaysPage: React.FC = () => {
     if (selectedClub) await loadRoster(selectedClub, selectedRelayType);
   }
 
-  async function runAnalysis() {
+  async function loadRelayTimes() {
     if (!selectedClub) {
       setError('Primero seleccione un club.');
       return;
@@ -496,70 +499,153 @@ export const RelaysPage: React.FC = () => {
     setIsAnalyzing(true);
     setError(null);
     try {
-      const result = await relayService.analyzeEntries(selectedRelayType, {
-        clubId: String(selectedClub.id),
-        file: attendanceFile ?? undefined,
-        athleteIds: eligibleAthleteIds,
-      });
+      const result = attendanceFile
+        ? await relayService.getClubRosterFromAttendance(String(selectedClub.id), selectedRelayType, attendanceFile, eligibleAthleteIds)
+        : await relayService.getClubRoster(String(selectedClub.id), selectedRelayType, eligibleAthleteIds);
       setAnalysis(result);
       setSelectedAthleteIds(new Set(result.athletes.map((athlete) => athlete.id)));
-      setRelays(result.proposal.map((lineup) => relayFromLineup(lineup, result.relay_type.slots)));
+      setRelays([]);
       setManualTimes({});
       setFixedRelayIds(new Set());
       setIsSetupCollapsed(true);
       setIsAttendanceCollapsed(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Error inesperado al analizar relevos');
+      setError(caught instanceof Error ? caught.message : 'Error inesperado al cargar tiempos');
       resetEditor();
     } finally {
       setIsAnalyzing(false);
     }
   }
 
-  async function rerunUnlockedAnalysis() {
+  function cancelProposal() {
+    proposalAbortController.current?.abort();
+    setProposalStatus('Cancelando propuesta...');
+  }
+
+  function isAbortError(caught: unknown) {
+    return caught instanceof DOMException && caught.name === 'AbortError';
+  }
+
+  async function fetchCategoryProposal(categoryKey: string, sourceRelays: EditableRelay[], signal?: AbortSignal): Promise<EditableRelay[]> {
     if (!selectedClub || !analysis) {
-      showToast('Primero ejecute un análisis.');
-      return;
+      showToast('Primero cargue los tiempos de los asistentes.');
+      return [];
     }
-    if (fixedRelays.length === 0) {
-      showToast('Fije al menos un relevo antes de reanalizar los restantes.');
-      return;
+    if (fixedCategoryKeys.has(categoryKey)) {
+      showToast('Esa categoría ya tiene un relevo fijado.');
+      return [];
     }
 
     const genderEligibleIds = new Set(genderEligibleAthletes.map((athlete) => athlete.id));
+    const baseRelays = relaysWithoutCategory(sourceRelays, categoryKey, slots, athletesById, analysis.categories);
+    const usedAthleteIds = assignedAthleteIdsFromRelays(baseRelays);
     const eligibleAthleteIds = Array.from(selectedAthleteIds).filter((id) => (
-      genderEligibleIds.has(id) && !unavailableAthleteIds.has(id) && !fixedAthleteIds.has(id)
+      genderEligibleIds.has(id) && !unavailableAthleteIds.has(id) && !usedAthleteIds.has(id)
     ));
     if (eligibleAthleteIds.length < 4) {
-      showToast('No hay al menos 4 atletas disponibles fuera de los relevos fijados.');
+      showToast('No hay al menos 4 atletas disponibles para proponer esa categoría.');
+      return [];
+    }
+
+    const result = await relayService.proposeCategory(selectedRelayType, categoryKey, {
+      clubId: String(selectedClub.id),
+      file: attendanceFile ?? undefined,
+      athleteIds: eligibleAthleteIds,
+      signal,
+    });
+    if (result.proposal.length === 0) {
+      showToast('No se encontró un relevo válido para esa categoría con los atletas disponibles.');
+      return [];
+    }
+    setAnalysis((current) => ({
+      ...result,
+      athletes: mergeRelayAthletes(current?.athletes ?? [], result.athletes),
+    }));
+    return result.proposal.map((lineup, index) => ({
+      ...relayFromLineup(lineup, result.relay_type.slots),
+      id: `category-${categoryKey}-${Date.now()}-${index + 1}`,
+    }));
+  }
+
+  async function proposeRelayCategory(categoryKey: string) {
+    const controller = new AbortController();
+    proposalAbortController.current = controller;
+    const categoryLabel = analysis?.categories.find((category) => category.key === categoryKey)?.label ?? categoryKey;
+    setIsAnalyzing(true);
+    setProposalStatus(`Generando propuesta para categoría ${categoryLabel}...`);
+    setError(null);
+    try {
+      const proposedRelays = await fetchCategoryProposal(categoryKey, relays, controller.signal);
+      if (controller.signal.aborted) return;
+      if (proposedRelays.length > 0 && analysis) {
+        setRelays((current) => [
+          ...relaysWithoutCategory(current, categoryKey, slots, athletesById, analysis.categories),
+          ...proposedRelays,
+        ]);
+        setIsAttendanceCollapsed(true);
+      }
+    } catch (caught) {
+      if (isAbortError(caught)) {
+        showToast('Propuesta cancelada.');
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : 'Error inesperado al proponer relevo por categoría');
+    } finally {
+      if (proposalAbortController.current === controller) proposalAbortController.current = null;
+      setProposalStatus(null);
+      setIsAnalyzing(false);
+    }
+  }
+
+  async function reproposeUnlockedCategories() {
+    if (!analysis) {
+      showToast('Primero cargue los tiempos de los asistentes.');
+      return;
+    }
+    const pendingCategoryKeys = analysis.categories
+      .map((category) => category.key)
+      .filter((categoryKey) => !fixedCategoryKeys.has(categoryKey));
+    if (pendingCategoryKeys.length === 0) {
+      showToast('No hay categorías pendientes para reproponer.');
       return;
     }
 
+    const controller = new AbortController();
+    proposalAbortController.current = controller;
     setIsAnalyzing(true);
+    setProposalStatus('Generando propuestas para categorías no fijadas...');
     setError(null);
     try {
-      const result = await relayService.analyzeEntries(selectedRelayType, {
-        clubId: String(selectedClub.id),
-        file: attendanceFile ?? undefined,
-        athleteIds: eligibleAthleteIds,
-        excludedCategoryKeys: Array.from(fixedCategoryKeys),
-      });
-      const reanalysisId = Date.now();
-      const unlockedRelays = result.proposal.map((lineup, index) => ({
-        ...relayFromLineup(lineup, result.relay_type.slots),
-        id: `reanalyzed-${reanalysisId}-${index + 1}`,
-      }));
-
-      setAnalysis((current) => ({
-        ...result,
-        athletes: mergeRelayAthletes(current?.athletes ?? [], result.athletes),
-      }));
-      setRelays([...fixedRelays, ...unlockedRelays]);
-      setManualTimes((current) => keepManualTimesForRelays(current, fixedRelays, slots));
+      let workingRelays = fixedRelays;
+      for (const categoryKey of pendingCategoryKeys) {
+        if (controller.signal.aborted) break;
+        const categoryLabel = analysis.categories.find((category) => category.key === categoryKey)?.label ?? categoryKey;
+        setProposalStatus(`Generando propuesta para categoría ${categoryLabel}...`);
+        // Secuencial a propósito: cada categoría debe excluir atletas usados por las propuestas previas del mismo ciclo.
+        const proposedRelays = await fetchCategoryProposal(categoryKey, workingRelays, controller.signal);
+        if (controller.signal.aborted) break;
+        if (proposedRelays.length > 0 && analysis) {
+          workingRelays = [
+            ...relaysWithoutCategory(workingRelays, categoryKey, slots, athletesById, analysis.categories),
+            ...proposedRelays,
+          ];
+        }
+      }
+      if (controller.signal.aborted) {
+        showToast('Propuesta cancelada.');
+        return;
+      }
+      setRelays(workingRelays);
       setIsAttendanceCollapsed(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Error inesperado al reanalizar relevos');
+      if (isAbortError(caught)) {
+        showToast('Propuesta cancelada.');
+        return;
+      }
+      setError(caught instanceof Error ? caught.message : 'Error inesperado al reproponer relevos no fijados');
     } finally {
+      if (proposalAbortController.current === controller) proposalAbortController.current = null;
+      setProposalStatus(null);
       setIsAnalyzing(false);
     }
   }
@@ -585,6 +671,28 @@ export const RelaysPage: React.FC = () => {
       else next.add(relayId);
       return next;
     });
+  }
+
+  function discardRelay(relayId: string) {
+    setRelays((current) => current.filter((relay) => relay.id !== relayId));
+    setFixedRelayIds((current) => {
+      const next = new Set(current);
+      next.delete(relayId);
+      return next;
+    });
+    setManualTimes((current) => {
+      const next = { ...current };
+      for (const slot of slots) {
+        delete next[manualTimeKey(relayId, slot.key)];
+      }
+      return next;
+    });
+  }
+
+  function discardAllRelays() {
+    setRelays([]);
+    setFixedRelayIds(new Set());
+    setManualTimes({});
   }
 
   function setSlotAssignment(targetRelayId: string, targetSlotKey: string, athleteId: string | null) {
@@ -682,32 +790,56 @@ export const RelaysPage: React.FC = () => {
           </div>
         </div>
       )}
+      {proposalStatus && (
+        <div className="fixed inset-x-4 bottom-24 z-[70] rounded-xl border border-blue-200 bg-white p-4 text-sm text-slate-700 shadow-xl sm:inset-x-auto sm:bottom-4 sm:right-4 sm:max-w-md">
+          <div className="flex items-center gap-3">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" aria-hidden="true" />
+            <p className="flex-1 font-medium">{proposalStatus}</p>
+            <button type="button" onClick={cancelProposal} className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">
+              Cancelar
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">Puede tardar si hay muchos asistentes disponibles.</p>
+        </div>
+      )}
       <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm">
         {isSetupCollapsed && selectedClub ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Organizador de relevos</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Preparar relevos</p>
               <p className="mt-1 text-sm text-slate-600">
-                {selectedClub.name} · {relayType.label}
+                {selectedClub.name} - {relayType.label} - {analysis?.athletes.length ?? 0} asistentes - tiempos cargados
               </p>
+              {attendanceFile && <p className="mt-1 text-xs text-emerald-700">Excel: <strong>{attendanceFile.name}</strong></p>}
             </div>
-            <button type="button" onClick={() => setIsSetupCollapsed(false)} className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm cursor-pointer hover:bg-blue-50">
-              Editar configuración
+            <button type="button" onClick={() => { setIsSetupCollapsed(false); setIsAttendanceCollapsed(false); }} className="rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm cursor-pointer hover:bg-blue-50">
+              Editar preparacion
             </button>
           </div>
         ) : (
           <>
             <div className="space-y-3">
-              <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Organizador de relevos</p>
-              <ol className="grid gap-2 text-sm text-slate-600 sm:grid-cols-4">
-                <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">1.</span> Seleccione un club</li>
-                <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">2.</span> Seleccione tipo de relevo a analizar</li>
-                <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">3.</span> Revise asistentes o cargue Excel en la sección siguiente</li>
-                <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">4.</span> Ejecute el análisis</li>
-              </ol>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Preparar relevos</p>
+                <button
+                  type="button"
+                  onClick={() => setShowSetupHelp((current) => !current)}
+                  className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm hover:bg-blue-50"
+                  aria-expanded={showSetupHelp}
+                >
+                  {showSetupHelp ? 'Ocultar ayuda' : '¿Cómo usar?'}
+                </button>
+              </div>
+              {showSetupHelp && (
+                <ol className="grid gap-2 text-sm text-slate-600 sm:grid-cols-3">
+                  <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">1.</span> Seleccione club y tipo de relevo</li>
+                  <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">2.</span> Defina asistentes o cargue Excel</li>
+                  <li className="rounded-lg bg-white/70 px-3 py-2"><span className="font-semibold text-blue-700">3.</span> Cargue tiempos para proponer por categoria</li>
+                </ol>
+              )}
             </div>
 
-            <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px_auto]">
+            <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
               <div className="relative">
                 <input
                   value={clubSearch}
@@ -738,9 +870,66 @@ export const RelaysPage: React.FC = () => {
               <select value={selectedRelayType} onChange={handleRelayTypeChange} className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm">
                 {relayTypes.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
               </select>
+            </div>
 
-              <button type="button" onClick={() => void runAnalysis()} disabled={!selectedClub || isAnalyzing || isLoadingRoster} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 cursor-pointer">
-                {isAnalyzing ? 'Analizando...' : 'Analizar relevos'}
+            {analysis && selectedClub && (
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Asistentes</h2>
+                    <p className="text-sm text-slate-500">
+                      {analysis.athletes.length} asistentes cargados, {genderEligibleAthletes.length} compatibles con este relevo, {unavailableAthleteIds.size} no disponibles para relevos.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
+                      {attendanceFile ? "Reemplazar Excel" : "Cargar Excel"}
+                      <input type="file" accept=".xlsx,.xlsm" className="hidden" onChange={handleFileChange} disabled={isAnalyzing} />
+                    </label>
+                    {attendanceFile && <button type="button" onClick={clearAttendanceFilter} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 cursor-pointer hover:bg-red-100">Quitar Excel</button>}
+                    {!attendanceFile && (
+                      <>
+                        <button type="button" onClick={selectAllAthletes} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-blue-100">Todos</button>
+                        <button type="button" onClick={clearSelectedAthletes} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-blue-100">Ninguno</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {attendanceFile && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
+                    <span>Excel de asistencia cargado: <strong>{attendanceFile.name}</strong></span>
+                    <span>El analisis usara solo asistentes encontrados en ese archivo y excluira a los no disponibles.</span>
+                  </div>
+                )}
+
+                {!attendanceFile && (
+                  <p className="mt-3 rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-3 text-sm text-blue-700">
+                    Puede seleccionar asistentes manualmente o cargar la planilla de inscripcion en formato Excel para limitar el listado a los inscritos confirmados.
+                  </p>
+                )}
+
+                <div className="mt-4 grid max-h-[50vh] gap-2 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
+                  {genderEligibleAthletes.map((athlete) => (
+                    <label key={athlete.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50 ${unavailableAthleteIds.has(athlete.id) ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
+                      <input type="checkbox" checked={selectedAthleteIds.has(athlete.id)} onChange={() => toggleAthlete(athlete.id)} disabled={Boolean(attendanceFile)} className="mt-1" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-slate-900">{athlete.full_name}</span>
+                        <span className="text-xs text-slate-500">{genderLabel(athlete.gender)} - {athlete.age ?? 'sin edad'} anos</span>
+                        {unavailableAthleteIds.has(athlete.id) && <span className="block text-xs font-semibold text-red-700">No disponible para relevos</span>}
+                      </span>
+                      <button type="button" onClick={(event) => { event.preventDefault(); toggleAvailability(athlete.id); }} className={`rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 ${unavailableAthleteIds.has(athlete.id) ? 'hover:bg-blue-50' : 'hover:bg-red-50'} `}>
+                        {unavailableAthleteIds.has(athlete.id) ? 'Habilitar' : 'No relevo'}
+                      </button>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button type="button" onClick={() => void loadRelayTimes()} disabled={!selectedClub || isAnalyzing || isLoadingRoster} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 cursor-pointer">
+                {isAnalyzing ? 'Cargando...' : 'Cargar tiempos'}
               </button>
             </div>
           </>
@@ -750,73 +939,43 @@ export const RelaysPage: React.FC = () => {
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
       {isLoadingRoster && <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">Cargando roster vigente del club...</div>}
 
-      {analysis && selectedClub && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {analysis && selectedClub && isAttendanceCollapsed && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Asistentes</h2>
-              <p className="text-sm text-slate-500">
-                Club: {selectedClub.name}. {analysis.athletes.length} asistentes cargados, {genderEligibleAthletes.length} compatibles con este relevo, {unavailableAthleteIds.size} no disponibles para relevos.
-              </p>
+              <h2 className="text-xl font-bold text-slate-900">Generador automático por categoría</h2>
+              <p className="text-sm text-slate-500">Seleccione una categoria y genere una propuesta automática.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {isAttendanceCollapsed && (
-                <button type="button" onClick={() => setIsAttendanceCollapsed(false)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-slate-50">
-                  Editar asistentes
-                </button>
-              )}
-              {!isAttendanceCollapsed && (
-                <>
-                  <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100">
-                    {attendanceFile ? "Reemplazar Excel" : "Cargar Excel"}
-                    <input type="file" accept=".xlsx,.xlsm" className="hidden" onChange={handleFileChange} disabled={isAnalyzing} />
-                  </label>
-                  {attendanceFile && <button type="button" onClick={clearAttendanceFilter} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 cursor-pointer hover:bg-red-100">Quitar Excel</button>}
-                  {!attendanceFile && (
-                    <>
-                      <button type="button" onClick={selectAllAthletes} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-blue-100">Todos</button>
-                      <button type="button" onClick={clearSelectedAthletes} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer hover:bg-blue-100">Ninguno</button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
+            <button type="button" onClick={() => void reproposeUnlockedCategories()} disabled={isAnalyzing} className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400">
+              Reproponer no fijados
+            </button>
           </div>
-
-          {attendanceFile && (
-            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
-              <span>Excel de asistencia cargado: <strong>{attendanceFile.name}</strong></span>
-              <span className="text-emerald-700">El análisis usará solo asistentes encontrados en ese archivo y excluirá a los no disponibles.</span>
-            </div>
-          )}
-
-          {!attendanceFile && !isAttendanceCollapsed && (
-            <p className="mt-3 rounded-lg border border-dashed border-blue-200 bg-blue-50/50 p-3 text-sm text-blue-700">
-              Puede seleccionar asistentes manualmente o cargar la planilla de inscripción en formato Excel para limitar el listado a los inscritos confirmados.
-            </p>
-          )}
-
-          {!isAttendanceCollapsed && (
-            <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {genderEligibleAthletes.map((athlete) => (
-                <label key={athlete.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 hover:bg-slate-50 ${unavailableAthleteIds.has(athlete.id) ? 'border-red-200 bg-red-50' : 'border-slate-200'}`}>
-                  <input type="checkbox" checked={selectedAthleteIds.has(athlete.id)} onChange={() => toggleAthlete(athlete.id)} disabled={Boolean(attendanceFile)} className="mt-1" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-900">{athlete.full_name}</span>
-                    <span className="text-xs text-slate-500">{genderLabel(athlete.gender)} · {athlete.age ?? 'sin edad'} años</span>
-                    {unavailableAthleteIds.has(athlete.id) && <span className="block text-xs font-semibold text-red-700">No disponible para relevos</span>}
-                  </span>
-                  <button type="button" onClick={(event) => { event.preventDefault(); toggleAvailability(athlete.id); }} className={`rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 ${unavailableAthleteIds.has(athlete.id) ? 'hover:bg-blue-50' : 'hover:bg-red-50'} `}>
-                    {unavailableAthleteIds.has(athlete.id) ? 'Habilitar' : 'No relevo'}
-                  </button>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {analysis.categories.map((category) => {
+              const isFixedCategory = fixedCategoryKeys.has(category.key);
+              const hasDraft = categoryKeyCounts.has(category.key);
+              return (
+                <button
+                  key={category.key}
+                  type="button"
+                  onClick={() => void proposeRelayCategory(category.key)}
+                  disabled={isAnalyzing || isFixedCategory}
+                  className={`rounded-xl border p-3 text-left text-sm shadow-sm transition ${
+                    isFixedCategory
+                      ? 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400'
+                      : 'cursor-pointer border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100'
+                  }`}
+                >
+                  <span className="block font-semibold">{category.label}</span>
+                  <span className="text-xs">{isFixedCategory ? 'Categoría fijada' : hasDraft ? 'Reproponer relevo' : 'Proponer relevo'}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      {analysis && relays.length > 0 && (
+      {analysis && isAttendanceCollapsed && (
         <div className="space-y-4">
           <section className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -825,12 +984,17 @@ export const RelaysPage: React.FC = () => {
                 <p className="text-sm text-slate-500">{relays.length} relevos en tablero · {fixedRelays.length} fijados · {availableAthletes.length} atletas disponibles</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void rerunUnlockedAnalysis()} disabled={isAnalyzing || fixedRelays.length === 0} className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 shadow-sm hover:bg-blue-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400">
-                  {isAnalyzing ? 'Reanalizando...' : 'Reanalizar no fijados'}
-                </button>
                 <button type="button" onClick={() => setRelays((current) => [...current, emptyRelay(current.length + 1, slots)])} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm cursor-pointer hover:bg-slate-50">Agregar relevo manual</button>
+                <button type="button" onClick={discardAllRelays} disabled={relays.length === 0} className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 shadow-sm cursor-pointer hover:bg-red-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400">Descartar todos</button>
               </div>
             </div>
+
+            {relays.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                <p className="text-sm font-semibold text-slate-700">No hay relevos en el tablero.</p>
+                <p className="mt-1 text-sm text-slate-500">Puede proponer una categoría o comenzar manualmente agregando un relevo.</p>
+              </div>
+            )}
 
             {relays.map((relay, index) => {
               const evaluation = evaluateRelay(relay, slots, relayType, athletesById, analysis.categories, manualTimes, unavailableAthleteIds, assignedIdCounts, categoryKeyCounts);
@@ -850,6 +1014,9 @@ export const RelaysPage: React.FC = () => {
                       <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 sm:px-3 sm:text-sm">{evaluation.totalTimeText ?? 'sin tiempo'}</span>
                       <button type="button" onClick={() => toggleFixedRelay(relay.id)} className={`cursor-pointer rounded-full px-2 py-1 text-xs font-semibold sm:px-3 sm:text-sm ${isFixed ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
                         {isFixed ? 'Liberar' : 'Fijar'}
+                      </button>
+                      <button type="button" onClick={() => discardRelay(relay.id)} className="cursor-pointer rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 sm:px-3 sm:text-sm">
+                        Descartar
                       </button>
                     </div>
                   </div>

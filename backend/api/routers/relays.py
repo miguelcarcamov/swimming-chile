@@ -10,10 +10,12 @@ from natacion_chile.relays import (
     analyze_athletes,
     analyze_upload,
     best_time_key,
+    enrich_athletes_with_db_times,
     normalize_name,
     normalize_name_match_key,
     normalize_rut,
     parse_entries_workbook,
+    propose_category_response,
     relay_distance_m,
     roster_response,
 )
@@ -308,13 +310,28 @@ def analyze_club_roster(
     )
 
 
+def propose_club_category(
+    club_id: int,
+    relay_type: str,
+    category_key: str,
+    attendance_file_bytes: bytes = b"",
+    athlete_ids: list[int] | None = None,
+):
+    return propose_category_response(
+        club_roster(club_id, relay_type, attendance_file_bytes, athlete_ids),
+        relay_type,
+        category_key,
+    )
+
+
 @router.get("/club-roster")
 def get_club_relay_roster(
     club_id: int = Query(..., ge=1),
     relay_type: str = Query("4x50_medley_mixed"),
+    athlete_ids: list[int] = Query(default=[]),
 ):
     try:
-        return roster_response(club_roster(club_id, relay_type), relay_type)
+        return roster_response(club_roster(club_id, relay_type, athlete_ids=athlete_ids), relay_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -323,10 +340,11 @@ def get_club_relay_roster(
 async def get_filtered_club_relay_roster(
     club_id: int = Query(..., ge=1),
     relay_type: str = Query("4x50_medley_mixed"),
+    athlete_ids: list[int] = Query(default=[]),
     file_bytes: bytes = Body(default=b"", media_type="application/octet-stream"),
 ):
     try:
-        return roster_response(club_roster(club_id, relay_type, attendance_file_bytes=file_bytes), relay_type)
+        return roster_response(club_roster(club_id, relay_type, attendance_file_bytes=file_bytes, athlete_ids=athlete_ids), relay_type)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -350,5 +368,31 @@ async def analyze_relays(
             raise HTTPException(status_code=400, detail="El archivo debe ser Excel .xlsx o .xlsm")
         db_best_times = load_db_best_times(file_bytes, relay_type)
         return analyze_upload(filename, BytesIO(file_bytes), relay_type=relay_type, db_best_times=db_best_times, excluded_category_keys=excluded_categories)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/propose-category")
+async def propose_relay_category(
+    category_key: str = Query(...),
+    filename: str = Query("entries.xlsx"),
+    relay_type: str = Query("4x50_medley_mixed"),
+    club_id: int | None = Query(None, ge=1),
+    athlete_ids: list[int] = Query(default=[]),
+    file_bytes: bytes = Body(default=b"", media_type="application/octet-stream"),
+):
+    try:
+        if club_id is not None:
+            return propose_club_category(club_id, relay_type, category_key, file_bytes, athlete_ids)
+        if not file_bytes:
+            raise HTTPException(status_code=400, detail="Debes seleccionar un club o subir un Excel de asistencia")
+        if not filename.lower().endswith((".xlsx", ".xlsm")):
+            raise HTTPException(status_code=400, detail="El archivo debe ser Excel .xlsx o .xlsm")
+        db_best_times = load_db_best_times(file_bytes, relay_type)
+        return propose_category_response(
+            enrich_athletes_with_db_times(parse_entries_workbook(BytesIO(file_bytes)), db_best_times),
+            relay_type,
+            category_key,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
