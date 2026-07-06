@@ -60,7 +60,9 @@ EVENT_HEADER_RE = re.compile(
 
 ENGLISH_RELAY_AGE_SUFFIX_EVENT_HEADER_RE = re.compile(
     # HY-TEK can move the relay aggregate-age category after the stroke.
-    r"^\(?Event\s+(?P<event_number>\d+)\s+(?P<gender>Women|Men|Mixed)\s+(?P<distance_raw>\d+(?:x\d+)?)\s+(?P<course>LC|SC)\s+Meter\s+(?P<stroke>.+?\s+Relay)\s+(?P<age_group>\d+\s+a\s+\d+)\)?$",
+    # Some Chilean exports keep the English event shell but localize relay age
+    # bands after the stroke: "Medley Relay 280 años y mas" or "PM 72 a 99 años".
+    r"^\(?Event\s+(?P<event_number>\d+)\s+(?P<gender>Women|Men|Mixed)\s+(?P<distance_raw>\d+(?:x\d+)?)\s+(?P<course>LC|SC)\s+Meter\s+(?P<stroke>.+?\s+Relay)\s+(?P<age_group>(?:(?:PM|[A-Z])\s+)?(?:\d+\s+a\s+\d+(?:\s+a(?:ñ|n)os)?|\d+\s+a(?:ñ|n)os\s+y\s+m[aá]s|\d+\s+y\s+m[aá]s|PM|[A-Z]))\)?$",
     re.IGNORECASE,
 )
 
