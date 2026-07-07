@@ -23,6 +23,7 @@ DEFAULT_CALENDAR_URL = "https://fechida.cl/calendario-por-mes/"
 FECHIDA_BASE_URL = "https://fechida.cl/"
 RESULT_KEYWORDS = ("resultado", "resultados", "results", "meet results")
 MASTER_PATTERN = re.compile(r"\b(?:pre[-\s]?master|master|masters)\b", re.IGNORECASE)
+COMPLETE_RESULTS_PATTERN = re.compile(r"\b(?:completo|completos|complete|finales?)\b", re.IGNORECASE)
 
 
 @dataclass
@@ -104,6 +105,8 @@ def normalize_spaces(value: str) -> str:
 
 
 def strip_tags(value: str) -> str:
+    value = re.sub(r"<script\b[^>]*>.*?</script>", " ", value, flags=re.IGNORECASE | re.DOTALL)
+    value = re.sub(r"<style\b[^>]*>.*?</style>", " ", value, flags=re.IGNORECASE | re.DOTALL)
     return normalize_spaces(re.sub(r"<[^>]+>", " ", value))
 
 
@@ -151,6 +154,21 @@ def is_master_competition(competition: Competition) -> bool:
 
 
 def extract_info_title(html: str) -> str | None:
+    plain = strip_tags(html)
+    # FECHIDA historical pages may not expose a clean title heading; bound the
+    # title between stable metadata labels to avoid absorbing documents/footer.
+    matches = list(
+        re.finditer(
+            r"Campeonato Info\s+((?:(?!Campeonato Info).){1,180}?)\s+Lugar:",
+            plain,
+            re.IGNORECASE,
+        )
+    )
+    if matches:
+        title = normalize_spaces(matches[-1].group(1))
+        if title:
+            return title
+
     for pattern in (
         r"<h[1-4][^>]*>\s*(?!Campeonato Info\b)(.*?)</h[1-4]>",
         r"Campeonato Info\s*</[^>]+>\s*<[^>]+>\s*([^<]+)",
@@ -160,17 +178,20 @@ def extract_info_title(html: str) -> str | None:
             title = strip_tags(match.group(1))
             if title:
                 return title
-    plain = strip_tags(html)
-    match = re.search(r"Campeonato Info\s+(.+?)\s+Lugar:", plain, re.IGNORECASE)
-    return normalize_spaces(match.group(1)) if match else None
+    return None
 
 
 def extract_info_dates(html: str) -> tuple[str | None, str | None]:
     plain = strip_tags(html)
     dates = re.findall(r"\b20\d{2}-\d{2}-\d{2}\b", plain)
-    if not dates:
+    if dates:
+        return dates[0], dates[1] if len(dates) > 1 else dates[0]
+
+    slash_dates = re.findall(r"\b(\d{2})/(\d{2})/(20\d{2})\b", plain)
+    if not slash_dates:
         return None, None
-    return dates[0], dates[1] if len(dates) > 1 else dates[0]
+    normalized_dates = [f"{year}-{month}-{day}" for day, month, year in slash_dates]
+    return normalized_dates[0], normalized_dates[1] if len(normalized_dates) > 1 else normalized_dates[0]
 
 
 def parse_competition_info(html: str, competition_id: int, url: str) -> Competition:
@@ -214,6 +235,20 @@ def extract_documents(html: str, base_url: str) -> list[Document]:
         seen.add(absolute_url)
         title = anchor["text"] or Path(unquote(urlparse(absolute_url).path)).stem or "documentos-fechida"
         documents.append(Document(absolute_url, title, document_extension(absolute_url)))
+    return documents
+
+
+def is_complete_results_document(document: Document) -> bool:
+    haystack = f"{document.title} {document.source_url}"
+    return document.extension == ".pdf" and bool(COMPLETE_RESULTS_PATTERN.search(haystack))
+
+
+def select_canonical_documents(documents: list[Document]) -> list[Document]:
+    complete_results = [document for document in documents if is_complete_results_document(document)]
+    if complete_results:
+        # If FECHIDA publishes a consolidated results PDF, that is the only
+        # loadable source for the competition; stage PDFs would duplicate rows.
+        return complete_results
     return documents
 
 
@@ -305,7 +340,7 @@ def discover_from_html(
         html = info_html_by_id.get(competition.competition_id)
         if html is None:
             html = read_url_text(info_url, timeout_seconds)
-        documents = extract_documents(html, info_url)
+        documents = select_canonical_documents(extract_documents(html, info_url))
         if documents:
             discovered.append((competition, documents))
     return discovered

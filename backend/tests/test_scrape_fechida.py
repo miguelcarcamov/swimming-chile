@@ -33,9 +33,61 @@ def test_extract_documents_keeps_result_pdfs_and_fechida_document_bundle():
 
     assert [document.source_url for document in documents] == [
         "https://registro.fechida.org/competencia_documento_zip_down.php?id=497&clave=6a3466dbe5ed0",
+        "https://fechida.cl/wp-content/uploads/2026/07/resultados-completos-nacional-master.pdf",
         "https://fechida.cl/wp-content/uploads/2026/07/resultados-primera-etapa.pdf",
     ]
-    assert [document.extension for document in documents] == [".zip", ".pdf"]
+    assert [document.extension for document in documents] == [".zip", ".pdf", ".pdf"]
+
+
+def test_select_canonical_documents_prefers_complete_results_over_stage_pdfs_and_bundles():
+    documents = [
+        scraper.Document(
+            "https://registro.fechida.org/competencia_documento_zip_down.php?id=324&clave=demo",
+            "documentos",
+            ".zip",
+        ),
+        scraper.Document(
+            "https://fechida.cl/wp-content/uploads/2025/07/resultados-primera-etapa.pdf",
+            "resultados primera etapa.pdf",
+            ".pdf",
+        ),
+        scraper.Document(
+            "https://fechida.cl/wp-content/uploads/2025/07/resultados-completos-nacional-master.pdf",
+            "resultados completos nacional master.pdf",
+            ".pdf",
+        ),
+    ]
+
+    canonical = scraper.select_canonical_documents(documents)
+
+    assert [document.title for document in canonical] == ["resultados completos nacional master.pdf"]
+
+
+def test_parse_competition_info_bounds_title_before_lugar_metadata():
+    html = """
+    <html>
+    <head>
+      <title>Campeonato Info – Federación Chilena de Deportes Acuáticos</title>
+      <script>var ajaxurl = "https://fechida.cl/wp-admin/admin-ajax.php"</script>
+      <style>body { color: #07095b; }</style>
+    </head>
+    <body>
+      <h1>Campeonato Info</h1>
+      Campeonato nacional master invierno 2024
+      Lugar: CA KRISTEL KOBRICH
+      Fecha: Del 23/08/2024 al 23/08/2024
+      Documentos
+      resultados primera etapa nacional master invierno.pdf
+      Inicio FECHIDA Noticias MASTER Lost your password?
+    </body>
+    </html>
+    """
+
+    competition = scraper.parse_competition_info(html, 149, "https://fechida.cl/campeonato-info/?id=149")
+
+    assert competition.title == "Campeonato nacional master invierno 2024"
+    assert competition.start_date == "2024-08-23"
+    assert competition.end_date == "2024-08-23"
 
 
 def test_build_manifest_entries_uses_fechida_paths_and_metadata():
@@ -136,6 +188,7 @@ def test_discover_results_manifest_is_download_manifest_compatible(monkeypatch):
         manifest_entry = json.loads(manifest_path.read_text(encoding="utf-8").splitlines()[0])
         assert manifest_entry["source_system"] == "fechida"
         assert manifest_entry["competition_scope"] == "fechida_master"
+        assert manifest_entry["source_url"].endswith("/resultados-completos-nacional-master.pdf")
 
         result = downloader.process_manifest(
             manifest_path,

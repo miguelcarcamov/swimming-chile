@@ -532,7 +532,7 @@ def _collapse_fragmented_name_side(side: str) -> str:
             current_key = _name_token_key(current)
             if not nxt_key:
                 break
-            if nxt[:1].islower():
+            if nxt[:1].islower() and nxt_key not in NAME_CONNECTOR_TOKENS:
                 current += nxt
                 idx += 1
                 continue
@@ -1348,6 +1348,14 @@ def normalize_embedded_relay_markers(line: str) -> str:
     line = re.sub(
         rf"(?P<gender>[WM])(?P<age_tens>\d)\)(?P<age_ones>\d)\s+(?P<next_initial>[WM])(?P<leg>[1-4])\s+(?=[{LETTER_CHARS}])",
         r"\g<gender>\g<age_tens>\g<age_ones> \g<leg>) \g<next_initial>",
+        line,
+        flags=re.IGNORECASE,
+    )
+    # FECHIDA/HY-TEK OCR can split the previous swimmer age around the next leg
+    # marker, e.g. "W2)6 7Marfull" means "W67 2) Marfull".
+    line = re.sub(
+        rf"(?P<gender>[WM])(?P<leg>[1-4])\)(?P<age_tens>\d)\s+(?P<age_ones>\d)(?=[{LETTER_CHARS}])",
+        r"\g<gender>\g<age_tens>\g<age_ones> \g<leg>) ",
         line,
         flags=re.IGNORECASE,
     )

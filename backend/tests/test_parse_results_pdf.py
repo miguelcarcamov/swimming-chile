@@ -1090,6 +1090,24 @@ def test_parse_relay_swimmer_line_recovers_leg_marker_inside_age():
     assert rows[2].age_at_event == 35
 
 
+def test_parse_relay_swimmer_line_recovers_fechida_age_split_around_leg_marker():
+    rows = parser.parse_relay_swimmer_line(
+        "1) Barrientos, Odette Del Carmen W2)6 7Marfull, Lizca Angelica W53 3) Leal, Maria Cecilia W58 4) Mella, Cecilia del Pilar W60",
+        relay_women_context(),
+        page_number=11,
+        line_number=40,
+        relay_team_name="Club Master del Nielol A",
+        competition_year=2024,
+    )
+
+    assert [(row.leg_order, row.swimmer_name, row.age_at_event) for row in rows] == [
+        (1, "Barrientos, Odette Del Carmen", 67),
+        (2, "Marfull, Lizca Angelica", 53),
+        (3, "Leal, Maria Cecilia", 58),
+        (4, "Mella, Cecilia del Pilar", 60),
+    ]
+
+
 def test_build_output_frames_from_minimal_parsed_rows():
     individual_fixture = load_fixture("individual_with_seed")
     relay_team_fixture = load_fixture("relay_team")
