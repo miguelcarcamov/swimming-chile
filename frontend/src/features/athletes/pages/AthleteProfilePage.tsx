@@ -69,11 +69,37 @@ type TrendPoint = {
 };
 
 const PerformanceTrendChart: React.FC<{ points: TrendPoint[] }> = ({ points }) => {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = React.useState(0);
+
+  React.useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+
+    const updateWidth = () => {
+      setContainerWidth(Math.round(node.getBoundingClientRect().width));
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
   if (points.length === 0) return null;
 
-  const chartWidth = 720;
-  const chartHeight = 260;
-  const padding = { top: 24, right: 24, bottom: 72, left: 64 };
+  const chartWidth = Math.max(containerWidth || 720, 280);
+  const isCompact = chartWidth < 520;
+  const chartHeight = isCompact ? 240 : 260;
+  const padding = {
+    top: 24,
+    right: isCompact ? 12 : 24,
+    bottom: isCompact ? 52 : 72,
+    left: isCompact ? 52 : 64,
+  };
+  const showCompetitionNames = !isCompact;
   const plotWidth = chartWidth - padding.left - padding.right;
   const plotHeight = chartHeight - padding.top - padding.bottom;
   const times = points.map(point => point.result_time_ms);
@@ -87,8 +113,8 @@ const PerformanceTrendChart: React.FC<{ points: TrendPoint[] }> = ({ points }) =
   const yTicks = [yMin, (yMin + yMax) / 2, yMax];
 
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="min-w-[680px]">
+    <div ref={containerRef} className="w-full">
+      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} width="100%" height={chartHeight}>
         <line x1={padding.left} y1={padding.top} x2={padding.left} y2={padding.top + plotHeight} stroke="#cbd5e1" />
         <line x1={padding.left} y1={padding.top + plotHeight} x2={padding.left + plotWidth} y2={padding.top + plotHeight} stroke="#cbd5e1" />
         {yTicks.map(tick => (
@@ -134,9 +160,11 @@ const PerformanceTrendChart: React.FC<{ points: TrendPoint[] }> = ({ points }) =
               <text x={x} y={padding.top + plotHeight + 20} textAnchor="middle" className="fill-slate-500 text-[10px]">
                 {date || `Registro ${index + 1}`}
               </text>
-              <text x={x} y={padding.top + plotHeight + 36} textAnchor="middle" className="fill-slate-400 text-[10px]">
-                {point.competition_name.length > 16 ? `${point.competition_name.slice(0, 16)}…` : point.competition_name}
-              </text>
+              {showCompetitionNames && (
+                <text x={x} y={padding.top + plotHeight + 36} textAnchor="middle" className="fill-slate-400 text-[10px]">
+                  {point.competition_name.length > 16 ? `${point.competition_name.slice(0, 16)}…` : point.competition_name}
+                </text>
+              )}
             </g>
           );
         })}
