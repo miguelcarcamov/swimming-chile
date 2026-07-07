@@ -3,6 +3,7 @@
 Frontend application for **SwimStats Chile**, a data platform for Chilean competitive swimming results, athletes and clubs.
 
 The frontend is a React single-page application focused on presenting validated backend data through athlete, club and competition views.
+It also exposes a rankings and statistics area backed by real FastAPI data, not local fixtures.
 
 ## Architecture and methodology
 
@@ -22,9 +23,10 @@ graph LR
 ## Frontend responsibilities
 
 - Render athlete, club and competition data in a user-friendly interface.
+- Render swimmer rankings and participation statistics from backend contracts.
 - Consume backend data through API contracts, never direct database access.
 - Keep business rules and identity curation in the backend.
-- Use mocks and fixtures while backend contracts are stabilized.
+- Use mocks and fixtures only while a backend contract is not available.
 - Validate API responses at the frontend boundary.
 
 ## Tech stack

@@ -1,5 +1,5 @@
-import { CompetitionDetailResponseSchema, CompetitionFilterOptionsSchema, CompetitionsResponseSchema } from '../../../lib/schemas/competition';
-import type { CompetitionDetailResponse, CompetitionFilterOptions, CompetitionsResponse } from '../../../lib/schemas/competition';
+import { CompetitionDetailResponseSchema, CompetitionFilterOptionsSchema, CompetitionStatsSchema, CompetitionsResponseSchema } from '../../../lib/schemas/competition';
+import type { CompetitionDetailResponse, CompetitionFilterOptions, CompetitionStats, CompetitionsResponse } from '../../../lib/schemas/competition';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -33,6 +33,14 @@ export const competitionService = {
     
     const data = await response.json();
     return CompetitionDetailResponseSchema.parse(data);
+  },
+
+  async getCompetitionStats(id: string): Promise<CompetitionStats> {
+    const response = await fetch(`${API_BASE_URL}/api/competitions/${id}/stats`);
+    if (!response.ok) throw new Error('Failed to fetch competition stats');
+
+    const data = await response.json();
+    return CompetitionStatsSchema.parse(data);
   },
 
   async getCompetitionYears(): Promise<number[]> {

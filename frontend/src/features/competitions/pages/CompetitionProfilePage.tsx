@@ -194,6 +194,13 @@ export const CompetitionProfilePage: React.FC = () => {
     retry: false,
   });
 
+  const statsQuery = useQuery({
+    queryKey: ['competition-stats', id],
+    queryFn: () => competitionService.getCompetitionStats(id!),
+    enabled: !!id,
+    retry: false,
+  });
+
   const groupedEvents = useMemo(() => {
     if (!data) return [];
     
@@ -341,6 +348,26 @@ export const CompetitionProfilePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {statsQuery.data && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+          {[
+            ['Participantes', statsQuery.data.participants_count],
+            ['Mujeres', statsQuery.data.women_count],
+            ['Hombres', statsQuery.data.men_count],
+            ['Clubes', statsQuery.data.clubs_count],
+            ['Pruebas', statsQuery.data.events_count],
+            ['Válidos', statsQuery.data.valid_results_count],
+            ['DQ', statsQuery.data.dsq_count],
+            ['Entradas', statsQuery.data.entries_count],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">{label}</p>
+              <p className="mt-1 text-2xl font-black text-slate-900">{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Buscador y Filtros */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4">

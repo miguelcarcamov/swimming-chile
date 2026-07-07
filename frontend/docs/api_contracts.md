@@ -280,13 +280,64 @@ Competition detail with nested event results.
 
 Competition result pages use `source_url` as the official source link and use seed/result fields to display the delta in seconds. Positive deltas mean the result time increased and are shown in red; negative deltas mean the result improved and are shown in green.
 
+### `GET /api/competitions/{id}/stats`
+
+Participation statistics for one competition.
+
+**Rules:**
+
+- Participants are unique athletes with at least one result whose status is not `dns` or `scratch`.
+- Women and men are counted from `core.athlete.gender`.
+- Clubs are counted from historical result representation: `core.result.club_id`.
+- DSQ/DQ count uses `status = "dsq"`.
+- Valid results count uses `status = "valid"`.
+
+**Response (200 OK):**
+
+```json
+{
+  "participants_count": 120,
+  "women_count": 52,
+  "men_count": 68,
+  "clubs_count": 18,
+  "dsq_count": 3,
+  "valid_results_count": 420,
+  "entries_count": 435,
+  "events_count": 34
+}
+```
+
 ---
 
 ## 4. Rankings
 
 ### `GET /api/rankings`
 
-Planned endpoint for future ranking screens.
+Best swimmer marks by event filters.
+
+**Query params:**
+
+- `distance_m` (number, optional): event distance in meters.
+- `stroke` (string, optional): canonical event stroke.
+- `gender` (string, optional): canonical event gender: `women`, `men` or `mixed`.
+- `age_group` (string, optional): current athlete category. Use `all` or omit to include all categories.
+- `course_type` (string, optional): `scm`, `lcm` or `unknown`. Use `all` or omit to include all courses.
+- `year` (number, optional): competition year. When omitted, rankings default to results from the last 12 months.
+- `competition_scope` (string, optional): curated competition scope.
+- `athlete_search` (string, optional): search athletes by name inside the already-filtered ranking.
+- `page` (number, optional): page number.
+- `page_size` (number, optional): results per page.
+
+**Rules:**
+
+- Only individual results are ranked.
+- Only `status = "valid"` and non-null `result_time_ms` are eligible.
+- Exhibition marks with a leading `X` in source text are eligible when they have valid milliseconds; the API returns display `time_text` without the `X`.
+- One athlete appears once per filtered ranking, using their best eligible time.
+- `athlete_search` is applied after ranking so matching athletes keep their real global rank within the selected filters.
+- Ranking category is the athlete's current category derived from `core.athlete.birth_year`, not the historical `core.event.age_group`.
+- `event_age_group` remains available as historical competition context.
+- Historical club representation uses `core.result.club_id`, not the athlete's current club.
 
 **Response (200 OK):**
 
@@ -300,13 +351,17 @@ Planned endpoint for future ranking screens.
       "club_name": "Estadio Español",
       "time_text": "00:25.40",
       "time_ms": 25400,
+      "competition_id": 501,
       "competition_name": "Torneo Nacional 2023",
-      "date": "2023-11-15T00:00:00Z",
+      "date": "2023-11-15",
       "distance_m": 50,
       "stroke": "freestyle",
-      "course_type": "LCM",
-      "gender": "male",
-      "age_group": "30-34"
+      "course_type": "scm",
+      "gender": "men",
+      "age_group": "30-34",
+      "event_age_group": "25-29",
+      "birth_year": 1996,
+      "current_age": 30
     }
   ],
   "meta": {
@@ -318,8 +373,76 @@ Planned endpoint for future ranking screens.
 }
 ```
 
+### `GET /api/rankings/filter-options`
 
----## 5. Relays
+Filter catalog for the rankings page.
+
+**Rules:**
+
+- `event_options` lists valid distance/stroke combinations from real result data.
+- `age_groups`, `years` and `scopes` are global lists and must not disappear when the user changes distance or stroke.
+- The under-25 current category is labeled `premaster`.
+
+**Response (200 OK):**
+
+```json
+{
+  "distances": [50, 100, 200],
+  "strokes": ["freestyle", "backstroke", "breaststroke", "butterfly", "individual_medley"],
+  "event_options": [
+    { "distance_m": 50, "stroke": "freestyle" },
+    { "distance_m": 100, "stroke": "freestyle" }
+  ],
+  "age_groups": ["premaster", "25-29", "30-34"],
+  "years": [2026, 2025],
+  "scopes": ["fchmn_local"]
+}
+```
+
+### `GET /api/stats/clubs/participation`
+
+Club participation ranking.
+
+**Query params:**
+
+- `year` (number, optional): competition year.
+- `competition_scope` (string, optional): curated competition scope.
+- `page` (number, optional): page number.
+- `page_size` (number, optional): results per page.
+
+**Rules:**
+
+- Participation uses unique athletes with at least one result whose status is not `dns` or `scratch`.
+- Club attribution uses `core.result.club_id` to preserve the club represented in that competition.
+
+**Response (200 OK):**
+
+```json
+{
+  "data": [
+    {
+      "rank": 1,
+      "club_id": 10,
+      "club_name": "Estadio Español",
+      "unique_athletes": 42,
+      "competitions_count": 8,
+      "entries_count": 180
+    }
+  ],
+  "meta": {
+    "total_results": 1,
+    "page": 1,
+    "page_size": 20,
+    "total_pages": 1
+  }
+}
+```
+
+The `/rankings` frontend route separates swimmer rankings from club statistics in-page. Mobile renders swimmer rankings as cards; desktop renders the full table.
+
+---
+
+## 5. Relays
 
 Relay organizer flow is club-first. The club current roster is the source of eligible athletes; Excel is optional and only filters the roster to confirmed attendees.
 

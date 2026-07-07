@@ -69,3 +69,16 @@ export const CompetitionDetailResponseSchema = z.object({
 });
 
 export type CompetitionDetailResponse = z.infer<typeof CompetitionDetailResponseSchema>;
+
+export const CompetitionStatsSchema = z.object({
+  participants_count: z.number().int(),
+  women_count: z.number().int(),
+  men_count: z.number().int(),
+  clubs_count: z.number().int(),
+  dsq_count: z.number().int(),
+  valid_results_count: z.number().int(),
+  entries_count: z.number().int(),
+  events_count: z.number().int(),
+});
+
+export type CompetitionStats = z.infer<typeof CompetitionStatsSchema>;

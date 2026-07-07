@@ -47,6 +47,7 @@ graph TD
 - Load data through staging tables into the core relational model.
 - Preserve traceability with source documents, load runs and validation issues.
 - Expose validated data through FastAPI endpoints.
+- Expose analytics endpoints for swimmer rankings, club participation and competition statistics.
 
 ## Design decisions
 
@@ -55,6 +56,7 @@ graph TD
 3. **Controlled identity curation:** Athlete identity is curated before load; club history is contextual and must not define long-term athlete identity by itself.
 4. **Quality gates:** Documents with blocking issues stay in `requires_review` and must not be loaded into core.
 5. **API as product boundary:** The frontend consumes FastAPI endpoints, not direct database access.
+6. **Analytics from core facts:** Rankings and participation statistics are derived from `core.result`, `core.event`, `core.competition`, `core.athlete` and `core.club`; historical club representation uses `result.club_id`.
 
 ## Technologies
 
@@ -75,6 +77,8 @@ graph TD
 - `scripts/run_pipeline_results.py`: Loads CSVs into staging and core tables.
 - `sql/schema.sql`: Core and staging schema.
 - `sql/migrations/`: Incremental database migrations.
+- `api/routers/rankings.py`: Swimmer ranking endpoints and ranking filter catalog.
+- `api/routers/stats.py`: Participation statistics endpoints.
 
 ## Safe ingestion flow
 

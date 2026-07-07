@@ -2,6 +2,36 @@
 
 Este documento condensa los hitos y auditorías relevantes durante el desarrollo y carga de datos históricos (Fase 4 y Fase 5). La evidencia detallada original fue consolidada para mantener la documentación operativa limpia.
 
+## 2026-07-07 - Módulo de rankings y estadísticas reales
+
+- Se agrega el módulo full-stack de rankings y estadísticas consumiendo datos
+  reales desde `core.result`, `core.event`, `core.competition`, `core.athlete`
+  y `core.club`, sin fixtures locales en la ruta pública.
+- `GET /api/rankings` rankea sólo resultados individuales válidos con
+  `result_time_ms`, deduplica por atleta usando su mejor marca dentro del
+  filtro y, por defecto, limita el ranking a los últimos 12 meses salvo que se
+  solicite un año explícito.
+- La categoría del ranking representa la categoría actual del nadador calculada
+  desde `core.athlete.birth_year`; `core.event.age_group` queda como contexto
+  histórico de la competencia. La categoría bajo 25 años se presenta como
+  `premaster`.
+- Los tiempos de exhibición con prefijo `X` se mantienen como válidos para
+  ranking cuando tienen milisegundos; la API devuelve el texto de tiempo sin la
+  `X` para evitar tratarlos visualmente como inválidos.
+- El catálogo de filtros expone combinaciones reales distancia/estilo para
+  evitar pruebas inexistentes, pero mantiene categorías, años y scopes como
+  listas globales estables.
+- El buscador de atleta en rankings se aplica después de calcular el ranking
+  filtrado, por lo que las coincidencias conservan su posición real dentro de
+  la prueba, categoría, género, piscina y periodo seleccionados.
+- `GET /api/stats/clubs/participation` y
+  `GET /api/competitions/{id}/stats` calculan participación desde
+  `core.result.club_id`, preservando el club representado históricamente en cada
+  competencia en vez de usar el club actual del atleta.
+- En frontend, `/rankings` separa rankings de nadadores y estadísticas de
+  clubes dentro de la página, con navegación interna responsive y cards para
+  rankings en mobile.
+
 ## 2026-06-30 - Identidad civil y membresia Ñuñoa Master
 
 - Se agrega la migracion `backend/sql/migrations/007_identity_membership_accounts.sql`

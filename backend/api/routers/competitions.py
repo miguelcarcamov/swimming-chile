@@ -132,6 +132,49 @@ def get_competition_filter_options(
                 "governing_bodies": governing_bodies,
             }
 
+@router.get("/{competition_id}/stats")
+def get_competition_stats(competition_id: int):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM core.competition WHERE id = %s", (competition_id,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Competition not found")
+
+            cur.execute("""
+                WITH attended_results AS (
+                    SELECT
+                        r.id,
+                        r.athlete_id,
+                        a.gender AS athlete_gender,
+                        r.club_id,
+                        r.status
+                    FROM core.result r
+                    JOIN core.athlete a ON a.id = r.athlete_id
+                    JOIN core.event e ON e.id = r.event_id
+                    WHERE e.competition_id = %(competition_id)s
+                      AND COALESCE(r.status, 'unknown') NOT IN ('dns', 'scratch')
+                )
+                SELECT
+                    COUNT(DISTINCT athlete_id)::INTEGER AS participants_count,
+                    COUNT(DISTINCT athlete_id) FILTER (WHERE athlete_gender = 'female')::INTEGER AS women_count,
+                    COUNT(DISTINCT athlete_id) FILTER (WHERE athlete_gender = 'male')::INTEGER AS men_count,
+                    COUNT(DISTINCT club_id) FILTER (WHERE club_id IS NOT NULL)::INTEGER AS clubs_count,
+                    COUNT(*) FILTER (WHERE status = 'dsq')::INTEGER AS dsq_count,
+                    COUNT(*) FILTER (WHERE status = 'valid')::INTEGER AS valid_results_count,
+                    COUNT(*)::INTEGER AS entries_count
+                FROM attended_results
+            """, {"competition_id": competition_id})
+            stats = cur.fetchone()
+
+            cur.execute("""
+                SELECT COUNT(*)::INTEGER AS events_count
+                FROM core.event
+                WHERE competition_id = %s
+            """, (competition_id,))
+            stats["events_count"] = cur.fetchone()["events_count"]
+
+            return stats
+
 @router.get("/{competition_id}")
 def get_competition(competition_id: int):
     with get_db_connection() as conn:
