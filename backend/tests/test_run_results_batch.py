@@ -500,6 +500,30 @@ def test_build_load_command_forwards_source_revision_override():
     assert "--allow-competition-source-revision" in command
 
 
+def test_build_load_command_forwards_club_alias_csv():
+    args = Namespace(
+        host="localhost",
+        port=5432,
+        dbname="natacion_chile",
+        user="postgres",
+        password="secret",
+        schema="core",
+        default_source_id=7,
+        competition_id=42,
+        source_url=None,
+        competition_scope="fechida_master",
+        truncate_staging=False,
+        club_alias_csv="backend/data/staging/csv/fechida_master_club_alias_final.csv",
+    )
+
+    command = batch.build_load_command(args, Path("backend/data/raw/results_csv/demo"))
+
+    assert command[-2:] == [
+        "--club-alias-csv",
+        "backend/data/staging/csv/fechida_master_club_alias_final.csv",
+    ]
+
+
 def test_redact_command_hides_password_value():
     command = ["python", "script.py", "--user", "postgres", "--password", "secret", "--schema", "core"]
 

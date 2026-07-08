@@ -124,6 +124,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--schema", type=str, default="core", help="Schema PostgreSQL para --load.")
     parser.add_argument("--truncate-staging", action="store_true", help="Trunca staging durante --load.")
     parser.add_argument(
+        "--club-alias-csv",
+        help="CSV opcional con columnas alias_name, canonical_name para resolver variantes de clubes durante --load.",
+    )
+    parser.add_argument(
         "--allow-competition-source-revision",
         action="store_true",
         help="Permite cargar una fuente distinta para una competencia ya cargada. Usar solo con revisión explícita.",
@@ -243,6 +247,8 @@ def build_load_command(args: argparse.Namespace, input_dir: Path) -> list[str]:
         command.extend(["--governing-body-name", str(args.governing_body_name)])
     if args.truncate_staging:
         command.append("--truncate-staging")
+    if getattr(args, "club_alias_csv", None):
+        command.extend(["--club-alias-csv", str(args.club_alias_csv)])
     if getattr(args, "allow_competition_source_revision", False):
         command.append("--allow-competition-source-revision")
     return command
