@@ -43,17 +43,50 @@ def test_decision_birth_year_does_not_materialize_suda_range_without_core_year()
     assert curate.decision_birth_year(row) == ""
 
 
-def test_fuzzy_identity_merge_keys_use_core_year_for_suda_range_rows(tmp_path):
-    decisions_path = tmp_path / "suda_range.csv"
-    decisions_path.write_text(
-        "decision;confidence_bucket;suda_full_name;suda_gender;birth_year;core_full_name;core_gender;core_birth_year\n"
-        'merge;suda_2026_birth_year_range;"DE QUEIROZ, MANOEL ELPIDIO PEREIRA";male;1962-1966;"Queiroz, Manoel";male;1962\n',
-        encoding="utf-8",
-    )
+def test_fuzzy_identity_merge_keys_use_core_year_for_suda_range_rows():
+    tmp_dir = _workspace_tmp_dir()
+    try:
+        decisions_path = tmp_dir / "suda_range.csv"
+        decisions_path.write_text(
+            "decision;confidence_bucket;suda_full_name;suda_gender;birth_year;core_full_name;core_gender;core_birth_year\n"
+            'merge;suda_2026_birth_year_range;"DE QUEIROZ, MANOEL ELPIDIO PEREIRA";male;1962-1966;"Queiroz, Manoel";male;1962\n',
+            encoding="utf-8",
+        )
 
-    assert curate.load_fuzzy_identity_merge_keys(decisions_path) == [
-        {"name_key": "queiroz manoel", "birth_year": "1962", "gender": "male"}
-    ]
+        assert curate.load_fuzzy_identity_merge_keys(decisions_path) == [
+            {"name_key": "queiroz manoel", "birth_year": "1962", "gender": "male"}
+        ]
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_fuzzy_identity_decisions_accepts_headered_fechida_core_candidates():
+    tmp_dir = _workspace_tmp_dir()
+    try:
+        decisions_path = tmp_dir / "fechida_core_candidates.csv"
+        decisions_path.write_text(
+            "decision;suggested_canonical_full_name;canonical_birth_year;review_hint;candidate_reason;gender;birth_year;club_key;shorter_full_name;longer_full_name;shorter_athlete_key;longer_athlete_key;source_full_name;source_athlete_key;source_club_name;source_club_key;source_table;source_urls;core_athlete_id;core_full_name;core_athlete_key;core_base_club_name;core_current_club_name;core_historical_club_names;club_context_match;candidate_count_for_source\n"
+            "merge;Abarca Guzman, Pablo Ernesto;1999;cross_club_review;partial_name_match;male;1999;;Abarca, Pablo;Abarca Guzman, Pablo Ernesto;abarca pablo;abarca guzman pablo ernesto;Abarca, Pablo;abarca pablo;Club Deportivo Altis;club deportivo altis;athlete;https://fechida.cl/campeonato-info/?id=149;2079;Abarca Guzman, Pablo Ernesto;abarca guzman pablo ernesto;Goura Swim Team;Goura Swim Team;Goura Swim Team;no_contextual_club_match;1\n",
+            encoding="utf-8",
+        )
+
+        rules = curate.load_fuzzy_identity_decisions(decisions_path)
+        merge_keys = curate.load_fuzzy_identity_merge_keys(decisions_path)
+
+        assert {
+            "old_key": "abarca pablo",
+            "new_name": "Abarca Guzman, Pablo Ernesto",
+            "new_key": "abarca guzman pablo ernesto",
+            "birth_year": "1999",
+            "club_key": "",
+            "gender": "male",
+        } in rules
+        assert merge_keys == [
+            {"name_key": "abarca guzman pablo ernesto", "birth_year": "1999", "gender": "male"}
+        ]
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 def test_normalize_birth_year_rejects_category_ranges():
     assert curate.normalize_birth_year("1962") == "1962"

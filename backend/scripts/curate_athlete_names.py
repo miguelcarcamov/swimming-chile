@@ -511,10 +511,13 @@ def read_dict_rows(path: Path) -> List[dict]:
     reader = csv.reader(rows, delimiter=delimiter)
     first_row = next(reader, [])
     normalized_first = [normalize_match_text(value) or "" for value in first_row]
+    # normalize_match_text folds underscores to spaces, so compare normalized
+    # header tokens instead of raw snake_case names. Otherwise 26-column
+    # semicolon review files can be mistaken for legacy headerless fuzzy CSVs.
     has_header = "decision" in normalized_first and (
-        "suggested_canonical_full_name" in normalized_first
-        or "canonical_full_name" in normalized_first
-        or "shorter_full_name" in normalized_first
+        "suggested canonical full name" in normalized_first
+        or "canonical full name" in normalized_first
+        or "shorter full name" in normalized_first
     )
     if has_header:
         return list(csv.DictReader(rows, delimiter=delimiter))
