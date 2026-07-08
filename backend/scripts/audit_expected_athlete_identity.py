@@ -1081,7 +1081,9 @@ def write_csv(path: Path, rows: Sequence[dict]) -> None:
         "source_urls",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
+    # Review trays are edited in Excel on Windows; include BOM so accents and
+    # ñ are not misdetected as ANSI/CP1252.
+    with path.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
@@ -1089,7 +1091,9 @@ def write_csv(path: Path, rows: Sequence[dict]) -> None:
 
 def write_dict_csv(path: Path, rows: Sequence[dict], fieldnames: Sequence[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
+    # Review trays are edited in Excel on Windows; include BOM so accents and
+    # ñ are not misdetected as ANSI/CP1252.
+    with path.open("w", newline="", encoding="utf-8-sig") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
