@@ -115,6 +115,7 @@ Club list.
 
 - `page` (number, optional): Page number.
 - `page_size` (number, optional): Results per page.
+- `sort` (`"athletes"` | `"name"`, optional): Default `"athletes"` sorts by `total_athletes` descending, then name ascending. `"name"` sorts alphabetically.
 
 **Response (200 OK):**
 

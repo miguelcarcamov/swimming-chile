@@ -1,5 +1,5 @@
 import math
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from typing import Optional
 from ..database import get_db_connection
 from ..search import build_token_search_clause, search_tokens
@@ -19,9 +19,13 @@ def has_membership_schema(cur) -> bool:
 @router.get("")
 def list_clubs(
     search: Optional[str] = Query(None),
+    sort: str = Query("athletes"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100)
 ):
+    if sort not in {"athletes", "name"}:
+        raise HTTPException(status_code=400, detail="sort must be 'athletes' or 'name'")
+
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             offset = (page - 1) * page_size
@@ -81,7 +85,10 @@ def list_clubs(
                     count_query += f" AND {search_clause}"
                     params.extend(search_params)
                 
-            query += " ORDER BY c.name LIMIT %s OFFSET %s"
+            if sort == "name":
+                query += " ORDER BY c.name ASC LIMIT %s OFFSET %s"
+            else:
+                query += " ORDER BY total_athletes DESC, c.name ASC LIMIT %s OFFSET %s"
             
             cur.execute(count_query, params)
             total_results = cur.fetchone()['total']
@@ -101,8 +108,6 @@ def list_clubs(
                     "total_pages": total_pages
                 }
             }
-
-from fastapi import HTTPException
 
 @router.get("/{club_id}")
 def get_club(club_id: int):

@@ -9,6 +9,7 @@ import { Link } from 'react-router-dom';
 export const ClubsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [debouncedQuery, setDebouncedQuery] = React.useState('');
+  const [sortBy, setSortBy] = React.useState<'athletes' | 'name'>('athletes');
   const [page, setPage] = React.useState(1);
   const hasActiveFilters = searchTerm.trim() !== '';
 
@@ -27,8 +28,8 @@ export const ClubsPage: React.FC = () => {
   }, [searchTerm]);
   
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['clubs', debouncedQuery, page],
-    queryFn: () => clubService.getClubs(debouncedQuery, page),
+    queryKey: ['clubs', debouncedQuery, sortBy, page],
+    queryFn: () => clubService.getClubs(debouncedQuery, page, sortBy),
   });
 
   return (
@@ -52,6 +53,17 @@ export const ClubsPage: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
+          <select
+            value={sortBy}
+            onChange={(event) => {
+              setSortBy(event.target.value as 'athletes' | 'name');
+              setPage(1);
+            }}
+            className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm outline-none transition-shadow focus:border-blue-500 focus:ring-2 focus:ring-blue-500 sm:w-52"
+          >
+            <option value="athletes">Mayor cantidad de nadadores</option>
+            <option value="name">Orden alfabético</option>
+          </select>
           {hasActiveFilters && (
             <button
               type="button"
