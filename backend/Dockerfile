@@ -3,9 +3,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System deps for pdfplumber / image backends if needed later
+# System deps for pdfplumber / image backends and pipeline init (psql)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

@@ -1,3 +1,20 @@
+# SwimStats Chile — local stack
+#
+# Empty DB (schema only):
+#   docker-compose up -d db api
+#   ./ci/scripts/populate-db.sh --empty
+#
+# Empty DB via Compose init profile:
+#   docker-compose --profile init up -d
+#
+# Populated DB (schema + FCHMN smoke load, ~5 PDFs; needs network):
+#   docker-compose --profile populate up --build
+#   # or on host after db+api are up:
+#   ./ci/scripts/populate-db.sh
+#
+# Reset everything:
+#   docker-compose down -v
+
 services:
   db:
     image: postgres:16-alpine
@@ -31,6 +48,56 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # Profile: init — apply schema + migrations once, then exit.
+  db-init:
+    profiles: ["init"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: natacion_chile
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PGPASSWORD: postgres
+      POPULATE_INSIDE_CONTAINER: "1"
+    volumes:
+      - ./backend/sql:/app/sql:ro
+      - ./ci/scripts:/ci/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/ci/scripts/populate-db.sh", "--inside-container", "--empty"]
+    restart: "no"
+
+  # Profile: populate — schema + FCHMN smoke pipeline load (~5 PDFs), then exit.
+  populate:
+    profiles: ["populate"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: natacion_chile
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PGPASSWORD: postgres
+      POPULATE_LIMIT: "5"
+      POPULATE_RUN_ID: docker_smoke
+      POPULATE_INSIDE_CONTAINER: "1"
+    volumes:
+      - ./backend/data/raw:/app/data/raw
+      - ./backend/data/reference:/app/data/reference:ro
+      - ./backend/sql:/app/sql:ro
+      - ./ci/scripts:/ci/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/ci/scripts/populate-db.sh", "--inside-container"]
+    restart: "no"
 
 volumes:
   pgdata:

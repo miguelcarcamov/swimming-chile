@@ -185,7 +185,13 @@ export const CompetitionProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [genderFilter, setGenderFilter] = useState('all');
+
+  React.useEffect(() => {
+    const handler = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['competition-detail', id],
@@ -213,7 +219,7 @@ export const CompetitionProfilePage: React.FC = () => {
       const pruebaTitle = `${event.distance_m}m ${strokeTranslations[event.stroke]} ${genderTranslations[event.gender]}`;
       const categoryTitle = `Categoría: ${event.age_group} años`;
 
-      const query = searchQuery.toLowerCase().trim();
+      const query = debouncedSearchQuery.toLowerCase().trim();
       
       let matchingResults = event.results;
       let matchesSearch = false;
@@ -260,7 +266,7 @@ export const CompetitionProfilePage: React.FC = () => {
       group.ageGroups.sort((a, b) => getMinAge(a.age_group) - getMinAge(b.age_group));
       return group;
     });
-  }, [data, searchQuery, genderFilter]);
+  }, [data, debouncedSearchQuery, genderFilter]);
 
   const totalUniquePruebas = useMemo(() => {
     if (!data) return 0;
@@ -277,7 +283,7 @@ export const CompetitionProfilePage: React.FC = () => {
   const dateString = competition.date_start.includes('T') ? competition.date_start : `${competition.date_start}T12:00:00`;
   const dateObj = new Date(dateString);
   const formattedDate = dateObj.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const isSearching = searchQuery.trim().length > 0;
+  const isSearching = debouncedSearchQuery.trim().length > 0;
   const course = getCourseMeta(competition.course_type);
   const hasActiveFilters = searchQuery.trim() !== '' || genderFilter !== 'all';
 

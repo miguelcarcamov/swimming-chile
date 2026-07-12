@@ -121,6 +121,7 @@ export const CompetitionsPage: React.FC<{ mode: 'upcoming' | 'past' }> = ({ mode
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['competitions', debouncedQuery, year, governingBody, page, mode],
     queryFn: () => competitionService.getCompetitions(debouncedQuery, year, page, mode, 'all', governingBody),
+    placeholderData: (previous) => previous,
   });
 
   const { data: filterOptions } = useQuery({

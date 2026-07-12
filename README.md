@@ -46,39 +46,37 @@ Operational agent rules and tool-specific metadata may also live at the reposito
 
 ## Reproducibility
 
-**Requirements:** Python 3.12+, Node.js 20+, Docker optional.
+Full guide: **[docs/reproducibility.md](docs/reproducibility.md)**
 
-### Backend (local)
+**Requirements:** Python 3.12+, Node.js 20+, Docker optional (on Manjaro install `docker-compose` if `docker compose` is unavailable).
+
+### Case A — UI with empty database
 
 ```bash
-python -m venv backend/.venv
-source backend/.venv/bin/activate          # Windows: backend\.venv\Scripts\activate
+docker-compose up -d
+./ci/scripts/populate-db.sh --empty
+cd frontend && cp .env.example .env && npm ci && npm run dev
+```
+
+Or: `docker-compose --profile init up --build`
+
+### Case B — Populated database (smoke sample)
+
+```bash
+docker-compose up -d
+./ci/scripts/populate-db.sh          # ~5 FCHMN PDFs; needs network + venv
+# Or all-in-docker:
+docker-compose --profile populate up --build
+```
+
+Full historical load (~62 docs) requires the manual pipeline in [docs/reproducibility.md](docs/reproducibility.md) and [FCHMN runbook](backend/docs/fchmn_results_validation.md).
+
+### Backend tests + CI (no live DB)
+
+```bash
+python -m venv backend/.venv && source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env       # set DATABASE_URL or DB_* vars
 python -m pytest backend/tests -q
-```
-
-### Backend + PostgreSQL (Docker)
-
-```bash
-docker compose up --build
-```
-
-- API: http://localhost:8000
-- Postgres: `localhost:5432` — db `natacion_chile`, user/password `postgres`
-
-### Frontend
-
-```bash
-cd frontend
-cp .env.example .env                       # VITE_API_URL=http://localhost:8000
-npm ci
-npm run dev                                # http://localhost:5173
-```
-
-### CI parity (from repo root)
-
-```bash
 ./ci/scripts/backend-test.sh
 ./ci/scripts/frontend-check.sh
 ```

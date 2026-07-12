@@ -8,6 +8,17 @@ This folder holds CI scripts and documentation. GitHub Actions workflows live in
 |----------|---------|--------------|
 | `ci.yml` | push/PR to `main` | Backend pytest (contract tests), frontend lint + build |
 
+## Database init (local Docker)
+
+| Goal | Command |
+|------|---------|
+| Empty DB (schema only) | `./ci/scripts/populate-db.sh --empty` or `docker-compose --profile init up` |
+| Smoke sample data (~5 PDFs) | `./ci/scripts/populate-db.sh` or `docker-compose --profile populate up --build` |
+
+Shared helpers: `ci/scripts/lib/postgres.sh`. Schema-only entrypoint: `ci/scripts/init-db.sh` (also used by `populate-db.sh`).
+
+See [docs/reproducibility.md](../docs/reproducibility.md).
+
 ## Local parity
 
 Run the same checks locally:

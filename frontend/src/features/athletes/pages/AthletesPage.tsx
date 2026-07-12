@@ -32,6 +32,7 @@ export const AthletesPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['athletes', debouncedQuery, genderFilter, page],
     queryFn: () => athleteService.searchAthletes({ query: debouncedQuery, gender: genderFilter, page }),
+    placeholderData: (previous) => previous,
   });
 
   return (

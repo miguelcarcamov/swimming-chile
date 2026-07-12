@@ -3,9 +3,13 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { clubService } from '../api/clubService';
 import { athleteService } from '../../athletes/api/athleteService';
+import type { Club } from '../../../lib/schemas/club';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { EmptyState } from '../../../components/ui/EmptyState';
+
+type AttendanceCompetition = NonNullable<Club['attendance_matrix']>['competitions'][number];
+type AttendanceEntry = NonNullable<Club['attendance_matrix']>['athletes'][number]['competitions'][number];
 
 const formatCompetitionMonthYear = (date?: string | null) => {
   if (!date) return null;
@@ -146,49 +150,104 @@ export const ClubProfilePage: React.FC = () => {
       page 
     }),
     enabled: !!id,
+    placeholderData: (previous) => previous,
   });
+
+  const attendanceMatrix = club?.attendance_matrix;
+  const currentAthleteTotal = club?.total_athletes || attendanceMatrix?.athletes.length || 0;
+
+  const {
+    attendanceYears,
+    visibleAttendanceCompetitions,
+    attendanceTrendPoints,
+    attendanceSummaryByCompetition,
+    athleteAttendanceRows,
+  } = React.useMemo(() => {
+    if (!attendanceMatrix) {
+      return {
+        attendanceYears: [] as number[],
+        visibleAttendanceCompetitions: [] as AttendanceCompetition[],
+        attendanceTrendPoints: [] as AttendanceTrendPoint[],
+        attendanceSummaryByCompetition: new Map<string, { attendedCount: number; attendancePercentage: number }>(),
+        athleteAttendanceRows: [] as Array<{
+          athlete_id: string | number;
+          athlete_name: string;
+          attendanceByCompetition: Map<string, AttendanceEntry>;
+          highlightNoAttendance: boolean;
+        }>,
+      };
+    }
+
+    const years = Array.from(new Set(
+      attendanceMatrix.competitions
+        .map(competition => competition.date ? new Date(`${competition.date}T12:00:00`).getFullYear() : null)
+        .filter((year): year is number => Boolean(year))
+    )).sort((a, b) => b - a);
+
+    const visibleCompetitions = attendanceMatrix.competitions.filter(competition => (
+      attendanceYear === 'all' ||
+      (competition.date && new Date(`${competition.date}T12:00:00`).getFullYear().toString() === attendanceYear)
+    ));
+
+    const summaryByCompetition = new Map<string, { attendedCount: number; attendancePercentage: number }>();
+    for (const competition of visibleCompetitions) {
+      const competitionId = String(competition.id);
+      let attendedCount = 0;
+      for (const athlete of attendanceMatrix.athletes) {
+        const attendance = athlete.competitions.find(entry => String(entry.competition_id) === competitionId);
+        if (attendance?.status === 'attended') attendedCount += 1;
+      }
+      summaryByCompetition.set(competitionId, {
+        attendedCount,
+        attendancePercentage: currentAthleteTotal > 0 ? Math.round((attendedCount / currentAthleteTotal) * 100) : 0,
+      });
+    }
+
+    const trendPoints = visibleCompetitions
+      .map(competition => {
+        const summary = summaryByCompetition.get(String(competition.id));
+        return {
+          competition_id: competition.id,
+          competition_name: competition.name,
+          competition_date: competition.date,
+          attended_count: summary?.attendedCount ?? 0,
+          attendance_percentage: summary?.attendancePercentage ?? 0,
+        };
+      })
+      .sort((a, b) => {
+        const leftDate = a.competition_date ? new Date(`${a.competition_date}T12:00:00`).getTime() : 0;
+        const rightDate = b.competition_date ? new Date(`${b.competition_date}T12:00:00`).getTime() : 0;
+        return leftDate - rightDate || a.competition_name.localeCompare(b.competition_name);
+      });
+
+    const rows = attendanceMatrix.athletes.map(athlete => {
+      const attendanceByCompetition = new Map(
+        athlete.competitions.map(entry => [String(entry.competition_id), entry])
+      );
+      const hasAttendanceInVisibleYear = visibleCompetitions.some(competition => (
+        attendanceByCompetition.get(String(competition.id))?.status === 'attended'
+      ));
+
+      return {
+        athlete_id: athlete.athlete_id,
+        athlete_name: athlete.athlete_name,
+        attendanceByCompetition,
+        highlightNoAttendance: attendanceYear !== 'all' && !hasAttendanceInVisibleYear,
+      };
+    });
+
+    return {
+      attendanceYears: years,
+      visibleAttendanceCompetitions: visibleCompetitions,
+      attendanceTrendPoints: trendPoints,
+      attendanceSummaryByCompetition: summaryByCompetition,
+      athleteAttendanceRows: rows,
+    };
+  }, [attendanceMatrix, attendanceYear, currentAthleteTotal]);
 
   if (loadingClub) return <LoadingState />;
   if (errorClub) return <ErrorState onRetry={() => refetchClub()} />;
   if (!club) return <EmptyState title="Club no encontrado" />;
-
-  const attendanceMatrix = club.attendance_matrix;
-  const attendanceYears = attendanceMatrix
-    ? Array.from(new Set(
-        attendanceMatrix.competitions
-          .map(competition => competition.date ? new Date(`${competition.date}T12:00:00`).getFullYear() : null)
-          .filter((year): year is number => Boolean(year))
-      )).sort((a, b) => b - a)
-    : [];
-  const visibleAttendanceCompetitions = attendanceMatrix
-    ? attendanceMatrix.competitions.filter(competition => (
-        attendanceYear === 'all' ||
-        (competition.date && new Date(`${competition.date}T12:00:00`).getFullYear().toString() === attendanceYear)
-      ))
-    : [];
-  const currentAthleteTotal = club.total_athletes || attendanceMatrix?.athletes.length || 0;
-  const attendanceTrendPoints = attendanceMatrix
-    ? visibleAttendanceCompetitions
-        .map(competition => {
-          const attendedCount = attendanceMatrix.athletes.reduce((count, athlete) => {
-            const attendance = athlete.competitions.find(entry => String(entry.competition_id) === String(competition.id));
-            return attendance?.status === 'attended' ? count + 1 : count;
-          }, 0);
-
-          return {
-            competition_id: competition.id,
-            competition_name: competition.name,
-            competition_date: competition.date,
-            attended_count: attendedCount,
-            attendance_percentage: currentAthleteTotal > 0 ? Math.round((attendedCount / currentAthleteTotal) * 100) : 0,
-          };
-        })
-        .sort((a, b) => {
-          const leftDate = a.competition_date ? new Date(`${a.competition_date}T12:00:00`).getTime() : 0;
-          const rightDate = b.competition_date ? new Date(`${b.competition_date}T12:00:00`).getTime() : 0;
-          return leftDate - rightDate || a.competition_name.localeCompare(b.competition_name);
-        })
-    : [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -276,14 +335,8 @@ export const ClubProfilePage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {attendanceMatrix.athletes.map(athlete => {
-                    const attendanceByCompetition = new Map(
-                      athlete.competitions.map(entry => [String(entry.competition_id), entry])
-                    );
-                    const hasAttendanceInVisibleYear = visibleAttendanceCompetitions.some(competition => (
-                      attendanceByCompetition.get(String(competition.id))?.status === 'attended'
-                    ));
-                    const highlightNoAttendance = attendanceYear !== 'all' && !hasAttendanceInVisibleYear;
+                  {athleteAttendanceRows.map(athlete => {
+                    const { attendanceByCompetition, highlightNoAttendance } = athlete;
 
                     return (
                       <tr key={athlete.athlete_id} className={highlightNoAttendance ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-slate-50/60'}>
@@ -329,18 +382,12 @@ export const ClubProfilePage: React.FC = () => {
                       </span>
                     </th>
                     {visibleAttendanceCompetitions.map(competition => {
-                      const attendedCount = attendanceMatrix.athletes.reduce((count, athlete) => {
-                        const attendance = athlete.competitions.find(entry => String(entry.competition_id) === String(competition.id));
-                        return attendance?.status === 'attended' ? count + 1 : count;
-                      }, 0);
-                      const attendancePercentage = currentAthleteTotal > 0
-                        ? Math.round((attendedCount / currentAthleteTotal) * 100)
-                        : 0;
+                      const summary = attendanceSummaryByCompetition.get(String(competition.id));
 
                       return (
                         <td key={`summary-${competition.id}`} className="px-3 py-3 text-center">
-                          <span className="block font-bold text-slate-900">{attendedCount}</span>
-                          <span className="text-xs font-medium text-slate-500">{attendancePercentage}%</span>
+                          <span className="block font-bold text-slate-900">{summary?.attendedCount ?? 0}</span>
+                          <span className="text-xs font-medium text-slate-500">{summary?.attendancePercentage ?? 0}%</span>
                         </td>
                       );
                     })}

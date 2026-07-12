@@ -30,6 +30,7 @@ export const ClubsPage: React.FC = () => {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['clubs', debouncedQuery, sortBy, page],
     queryFn: () => clubService.getClubs(debouncedQuery, page, sortBy),
+    placeholderData: (previous) => previous,
   });
 
   return (

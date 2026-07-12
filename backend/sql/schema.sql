@@ -6,6 +6,7 @@
 -- y tablas staging para cargas desde Excel/CSV/PDF parser.
 -- =====================================================
 
+CREATE SCHEMA IF NOT EXISTS core;
 SET search_path TO core, public;
 
 -- =====================================================

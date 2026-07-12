@@ -5,6 +5,10 @@ import { rankingService } from '../api/rankingService';
 import { LoadingState } from '../../../components/ui/LoadingState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { EmptyState } from '../../../components/ui/EmptyState';
+import { useMediaQuery } from '../../../lib/useMediaQuery';
+import type { RankingsResponse } from '../../../lib/schemas/ranking';
+
+type RankingEntry = RankingsResponse['data'][number];
 
 const strokeLabels: Record<string, string> = {
   freestyle: 'Libre',
@@ -28,7 +32,82 @@ const courseLabels: Record<string, string> = {
 
 type AnalyticsView = 'swimmers' | 'clubs';
 
+function RankingMobileCard({ entry }: { entry: RankingEntry }) {
+  return (
+    <article className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-600">#{entry.rank}</p>
+          <Link to={`/athletes/${entry.athlete_id}`} className="mt-1 block truncate font-semibold text-slate-900 hover:text-blue-600 hover:underline">
+            {entry.athlete_name}
+          </Link>
+          <p className="mt-1 truncate text-sm text-slate-500">{entry.club_name || 'Sin club'}</p>
+        </div>
+        <span className="shrink-0 font-mono text-lg font-bold text-blue-700">{entry.time_text}</span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
+        <div>
+          <p className="font-semibold text-slate-700">{entry.age_group}</p>
+          {entry.current_age && <p>{entry.current_age} años</p>}
+        </div>
+        <div className="text-right">
+          <Link to={`/competitions/${entry.competition_id}`} className="block truncate hover:text-blue-600 hover:underline">
+            {entry.competition_name}
+          </Link>
+          <p className="text-slate-400">
+            {entry.date ? new Date(`${entry.date}T12:00:00`).getFullYear() : 's/f'}
+            {' '}• categoría {entry.event_age_group}
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function RankingTableRow({ entry }: { entry: RankingEntry }) {
+  return (
+    <tr className="hover:bg-slate-50 transition-colors">
+      <td className="px-6 py-4 text-center">
+        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
+          entry.rank === 1 ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300' :
+          entry.rank === 2 ? 'bg-slate-100 text-slate-600 ring-1 ring-slate-300' :
+          entry.rank === 3 ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' :
+          'text-slate-500'
+        }`}>
+          {entry.rank}
+        </span>
+      </td>
+      <td className="px-6 py-4 font-semibold text-slate-900">
+        <Link to={`/athletes/${entry.athlete_id}`} className="hover:text-blue-600 hover:underline">
+          {entry.athlete_name}
+        </Link>
+      </td>
+      <td className="px-6 py-4 text-slate-600">{entry.club_name || 'Sin club'}</td>
+      <td className="px-6 py-4 ">
+        <span className="font-mono font-bold text-blue-700 text-base">{entry.time_text}</span>
+      </td>
+      <td className="px-6 py-4 text-slate-600 text-center">
+        <span className="font-medium text-slate-800">{entry.age_group}</span>
+        {entry.current_age && (
+          <span className="block text-xs text-slate-400">{entry.current_age} años</span>
+        )}
+      </td>
+      <td className="px-6 py-4 text-slate-500 text-xs">
+        <Link to={`/competitions/${entry.competition_id}`} className="hover:text-blue-600 hover:underline">
+          {entry.competition_name}
+        </Link>
+        <br />
+        <span className="text-slate-400">
+          {entry.date ? new Date(`${entry.date}T12:00:00`).getFullYear() : 's/f'}
+          {' '}• categoría {entry.event_age_group}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 export const RankingsPage: React.FC = () => {
+  const isDesktop = useMediaQuery('(min-width: 768px)');
   const [activeView, setActiveView] = React.useState<AnalyticsView>('swimmers');
   const [distance, setDistance] = React.useState('50');
   const [stroke, setStroke] = React.useState('freestyle');
@@ -43,6 +122,7 @@ export const RankingsPage: React.FC = () => {
   const filtersQuery = useQuery({
     queryKey: ['ranking-filter-options'],
     queryFn: () => rankingService.getFilterOptions(),
+    staleTime: 30 * 60 * 1000,
   });
 
   const validEventOptions = filtersQuery.data?.event_options || [];
@@ -75,6 +155,7 @@ export const RankingsPage: React.FC = () => {
       page,
     }),
     enabled: activeView === 'swimmers',
+    placeholderData: (previous) => previous,
   });
 
   const clubParticipationQuery = useQuery({
@@ -239,93 +320,33 @@ export const RankingsPage: React.FC = () => {
                     <EmptyState title="No hay marcas para estos filtros" description="Prueba con otra categoría, prueba o piscina." />
                   ) : (
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                      <div className="divide-y divide-slate-100 md:hidden">
-                        {rankingsQuery.data.data.map((entry) => (
-                          <article key={`mobile-${entry.rank}-${entry.athlete_id}-${entry.time_ms}`} className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-xs font-bold uppercase tracking-widest text-blue-600">#{entry.rank}</p>
-                                <Link to={`/athletes/${entry.athlete_id}`} className="mt-1 block truncate font-semibold text-slate-900 hover:text-blue-600 hover:underline">
-                                  {entry.athlete_name}
-                                </Link>
-                                <p className="mt-1 truncate text-sm text-slate-500">{entry.club_name || 'Sin club'}</p>
-                              </div>
-                              <span className="shrink-0 font-mono text-lg font-bold text-blue-700">{entry.time_text}</span>
-                            </div>
-                            <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
-                              <div>
-                                <p className="font-semibold text-slate-700">{entry.age_group}</p>
-                                {entry.current_age && <p>{entry.current_age} años</p>}
-                              </div>
-                              <div className="text-right">
-                                <Link to={`/competitions/${entry.competition_id}`} className="block truncate hover:text-blue-600 hover:underline">
-                                  {entry.competition_name}
-                                </Link>
-                                <p className="text-slate-400">
-                                  {entry.date ? new Date(`${entry.date}T12:00:00`).getFullYear() : 's/f'}
-                                  {' '}• categoría {entry.event_age_group}
-                                </p>
-                              </div>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-
-                      <div className="hidden overflow-x-auto md:block">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-                            <tr>
-                              <th className="px-6 py-4 w-16 text-center">Pos</th>
-                              <th className="px-6 py-4">Atleta</th>
-                              <th className="px-6 py-4">Club</th>
-                              <th className="px-6 py-4">Tiempo</th>
-                              <th className="px-6 py-4 text-center">Categoría actual</th>
-                              <th className="px-6 py-4">Competencia</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {rankingsQuery.data.data.map((entry) => (
-                              <tr key={`${entry.rank}-${entry.athlete_id}-${entry.time_ms}`} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-6 py-4 text-center">
-                                  <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
-                                    entry.rank === 1 ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300' :
-                                    entry.rank === 2 ? 'bg-slate-100 text-slate-600 ring-1 ring-slate-300' :
-                                    entry.rank === 3 ? 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' :
-                                    'text-slate-500'
-                                  }`}>
-                                    {entry.rank}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 font-semibold text-slate-900">
-                                  <Link to={`/athletes/${entry.athlete_id}`} className="hover:text-blue-600 hover:underline">
-                                    {entry.athlete_name}
-                                  </Link>
-                                </td>
-                                <td className="px-6 py-4 text-slate-600">{entry.club_name || 'Sin club'}</td>
-                                <td className="px-6 py-4 ">
-                                  <span className="font-mono font-bold text-blue-700 text-base">{entry.time_text}</span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-600 text-center">
-                                  <span className="font-medium text-slate-800">{entry.age_group}</span>
-                                  {entry.current_age && (
-                                    <span className="block text-xs text-slate-400">{entry.current_age} años</span>
-                                  )}
-                                </td>
-                                <td className="px-6 py-4 text-slate-500 text-xs">
-                                  <Link to={`/competitions/${entry.competition_id}`} className="hover:text-blue-600 hover:underline">
-                                    {entry.competition_name}
-                                  </Link>
-                                  <br />
-                                  <span className="text-slate-400">
-                                    {entry.date ? new Date(`${entry.date}T12:00:00`).getFullYear() : 's/f'}
-                                    {' '}• categoría {entry.event_age_group}
-                                  </span>
-                                </td>
+                      {isDesktop ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
+                              <tr>
+                                <th className="px-6 py-4 w-16 text-center">Pos</th>
+                                <th className="px-6 py-4">Atleta</th>
+                                <th className="px-6 py-4">Club</th>
+                                <th className="px-6 py-4">Tiempo</th>
+                                <th className="px-6 py-4 text-center">Categoría actual</th>
+                                <th className="px-6 py-4">Competencia</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {rankingsQuery.data.data.map((entry) => (
+                                <RankingTableRow key={`${entry.rank}-${entry.athlete_id}-${entry.time_ms}`} entry={entry} />
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-slate-100">
+                          {rankingsQuery.data.data.map((entry) => (
+                            <RankingMobileCard key={`mobile-${entry.rank}-${entry.athlete_id}-${entry.time_ms}`} entry={entry} />
+                          ))}
+                        </div>
+                      )}
                       <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
                         <p className="text-sm text-slate-500">
                           Página {rankingsQuery.data.meta.page} de {rankingsQuery.data.meta.total_pages}

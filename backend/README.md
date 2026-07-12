@@ -82,12 +82,13 @@ Copy `backend/.env.example` to `backend/.env` and set database credentials.
 ### Docker (API + PostgreSQL)
 
 ```bash
-docker compose up --build
+docker-compose up -d
+./ci/scripts/populate-db.sh --empty    # required — creates core.* tables
 ```
 
-API: http://localhost:8000 — Postgres: localhost:5432 (`natacion_chile` / `postgres` / `postgres`).
+Populated smoke sample: `./ci/scripts/populate-db.sh` or `docker-compose --profile populate up --build`.
 
-See also `backend/pyproject.toml`, `backend/Dockerfile`, and `ci/README.md`.
+See [docs/reproducibility.md](../../docs/reproducibility.md).
 
 ## Key files
 

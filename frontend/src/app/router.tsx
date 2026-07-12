@@ -1,16 +1,22 @@
+import { Suspense, type ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
-
-// Páginas
-import { AthletesPage } from '../features/athletes/pages/AthletesPage';
-import { AthleteProfilePage } from '../features/athletes/pages/AthleteProfilePage';
-import { ClubsPage } from '../features/clubs/pages/ClubsPage';
-import { ClubProfilePage } from '../features/clubs/pages/ClubProfilePage';
-import { CompetitionsPage } from '../features/competitions/pages/CompetitionsPage';
-import { CompetitionProfilePage } from '../features/competitions/pages/CompetitionProfilePage';
-import { RelaysPage } from '../features/relays/pages/RelaysPage';
+import { LoadingState } from '../components/ui/LoadingState';
 import { HomePage } from '../features/home/pages/HomePage';
-import { RankingsPage } from '../features/rankings/pages/RankingsPage';
+import {
+  LazyAthleteProfilePage,
+  LazyAthletesPage,
+  LazyClubProfilePage,
+  LazyClubsPage,
+  LazyCompetitionProfilePage,
+  LazyCompetitionsPage,
+  LazyRankingsPage,
+  LazyRelaysPage,
+} from './lazyPages';
+
+function withSuspense(element: ReactNode) {
+  return <Suspense fallback={<LoadingState />}>{element}</Suspense>;
+}
 
 export const router = createBrowserRouter([
   {
@@ -23,39 +29,39 @@ export const router = createBrowserRouter([
       },
       {
         path: 'athletes',
-        element: <AthletesPage />,
+        element: withSuspense(<LazyAthletesPage />),
       },
       {
         path: 'athletes/:id',
-        element: <AthleteProfilePage />,
+        element: withSuspense(<LazyAthleteProfilePage />),
       },
       {
         path: 'clubs',
-        element: <ClubsPage />,
+        element: withSuspense(<LazyClubsPage />),
       },
       {
         path: 'clubs/:id',
-        element: <ClubProfilePage />,
+        element: withSuspense(<LazyClubProfilePage />),
       },
       {
         path: 'calendar',
-        element: <CompetitionsPage mode="upcoming" />,
+        element: withSuspense(<LazyCompetitionsPage mode="upcoming" />),
       },
       {
         path: 'competitions',
-        element: <CompetitionsPage mode="past" />,
+        element: withSuspense(<LazyCompetitionsPage mode="past" />),
       },
       {
         path: 'competitions/:id',
-        element: <CompetitionProfilePage />,
+        element: withSuspense(<LazyCompetitionProfilePage />),
       },
       {
         path: 'relays',
-        element: <RelaysPage />,
+        element: withSuspense(<LazyRelaysPage />),
       },
       {
         path: 'rankings',
-        element: <RankingsPage />,
+        element: withSuspense(<LazyRankingsPage />),
       },
     ],
   },
