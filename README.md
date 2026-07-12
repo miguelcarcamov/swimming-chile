@@ -29,16 +29,61 @@ graph LR
 ## Monorepo structure
 
 ```text
-backend/   Data ingestion pipeline, PostgreSQL schema, FastAPI endpoints and backend tests.
-frontend/  React + TypeScript UI consuming API contracts and mock fixtures during integration.
-docs/      Cross-project roadmap, plans and portfolio-level documentation.
+backend/     Data ingestion pipeline, PostgreSQL schema, FastAPI endpoints and backend tests.
+frontend/    React + TypeScript UI consuming API contracts and mock fixtures during integration.
+docs/        Cross-project roadmap, plans and portfolio-level documentation.
+conventions/ English agent conventions (mirrors AGENTS.md).
+ci/          CI scripts; GitHub Actions workflows in .github/workflows/.
+.cursor/     Cursor rules and project agent skills.
 ```
 
 Operational agent rules and tool-specific metadata may also live at the repository root when required by the development workflow.
 
+- [Cursor rules and agents](.cursor/README.md)
 - [Agent conventions (English)](conventions/AGENTS.en.md)
 - [CI scripts and workflows](ci/README.md)
 - [Project audit (2026-07-11)](docs/audit/2026-07-11-project-audit.md)
+
+## Reproducibility
+
+**Requirements:** Python 3.12+, Node.js 20+, Docker optional.
+
+### Backend (local)
+
+```bash
+python -m venv backend/.venv
+source backend/.venv/bin/activate          # Windows: backend\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env       # set DATABASE_URL or DB_* vars
+python -m pytest backend/tests -q
+```
+
+### Backend + PostgreSQL (Docker)
+
+```bash
+docker compose up --build
+```
+
+- API: http://localhost:8000
+- Postgres: `localhost:5432` — db `natacion_chile`, user/password `postgres`
+
+### Frontend
+
+```bash
+cd frontend
+cp .env.example .env                       # VITE_API_URL=http://localhost:8000
+npm ci
+npm run dev                                # http://localhost:5173
+```
+
+### CI parity (from repo root)
+
+```bash
+./ci/scripts/backend-test.sh
+./ci/scripts/frontend-check.sh
+```
+
+See also `backend/pyproject.toml`, `backend/Dockerfile`, `.python-version`, and [backend README](backend/README.md).
 
 ## Tech stack
 

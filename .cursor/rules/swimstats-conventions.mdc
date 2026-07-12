@@ -1,0 +1,26 @@
+---
+description: Core SwimStats Chile rules for all agents — read conventions before editing
+alwaysApply: true
+---
+
+# SwimStats Chile — agent conventions
+
+Before proposing changes, read:
+
+- `conventions/AGENTS.en.md` (English operational rules)
+- `conventions/ai_workflow.en.md` (session methodology)
+- `AGENTS.md` (Spanish canonical rules)
+
+## Non-negotiables
+
+- Pipeline stages are decoupled: scrape → download → parse → curate → validate → load. Do not merge responsibilities.
+- Never run `--load` unless the user explicitly requests a core load.
+- One document in `requires_review` must not block or contaminate others in the same manifest.
+- Athlete identity is not rigidly tied to club; use `core.athlete_current_club` and historical clubs as context.
+- Minimal, localized patches. Explain diagnosis before editing.
+- After Python/parser changes: run `pytest backend/tests`.
+- Never commit passwords, `.env`, or raw/private data.
+
+## Project agents
+
+Specialized skills live in `.cursor/skills/`. Use them when asked; they do not replace these global rules.

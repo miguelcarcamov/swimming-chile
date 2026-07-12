@@ -5,6 +5,7 @@
 
 Para metodología de trabajo, estado actual a alto nivel y prompt sugerido, lee `backend/docs/ai_workflow.md`.
 Para reglas en inglés (Cursor / agentes internacionales), lee `conventions/AGENTS.en.md` y `conventions/ai_workflow.en.md`.
+Reglas y skills de Cursor en el repo: `.cursor/README.md`.
 Para decisiones históricas y versiones previas, lee `backend/docs/CHANGELOG.md`.
 
 ## Objetivo Principal

@@ -1,0 +1,29 @@
+---
+description: Backend pipeline, API, and PostgreSQL guardrails
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend
+
+## Scope
+
+- CLI scripts: `backend/scripts/`
+- Domain logic: `backend/natacion_chile/`
+- API: `backend/api/`
+- Contracts: `backend/docs/parser_contracts.md`, `batch_runner_contract.md`, `schema.md`
+
+## Rules
+
+- Parser OCR quirks belong in `parse_results_pdf.py` or `curate_athlete_names.py`, not generic pipeline glue.
+- Regex or parsing changes need a brief comment explaining why.
+- API routers use `core.*` schema; historical club on results is `result.club_id`, not athlete current club.
+- Prefer contract tests in `backend/tests/` over ad-hoc checks.
+- Do not add `--load` paths or auto-merge identity without human `decision=merge`.
+
+## Verify
+
+```bash
+source backend/.venv/bin/activate
+python -m pytest backend/tests -q
+```

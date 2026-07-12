@@ -13,4 +13,6 @@ The canonical operational rules remain in the repository root:
 
 When adding or changing operational rules, update **both** the Spanish source and the English mirror in this folder.
 
+Cursor loads project rules from [`.cursor/rules/`](../.cursor/rules/) and specialized agent skills from [`.cursor/skills/`](../.cursor/skills/). See [`.cursor/README.md`](../.cursor/README.md).
+
 Technical contracts (parser, batch runner, schema) stay in `backend/docs/` and are not duplicated here.

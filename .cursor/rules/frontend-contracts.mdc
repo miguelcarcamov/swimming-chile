@@ -1,0 +1,26 @@
+---
+description: Frontend contract-first React and API integration
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Frontend
+
+## Scope
+
+- Contracts: `frontend/docs/api_contracts.md`
+- Zod schemas: `frontend/src/lib/schemas/`
+- API clients: `frontend/src/features/*/api/`
+
+## Rules
+
+- Validate API responses with Zod; treat contract violations as bugs.
+- Use `VITE_API_URL` from env; prefer a single shared base URL config.
+- Rankings and stats consume real API endpoints — no fixture-only public routes.
+- Run `npm run lint` and `npm run build` after substantive changes.
+
+## Verify
+
+```bash
+cd frontend && npm run lint && npm run build
+```
