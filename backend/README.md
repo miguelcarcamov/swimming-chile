@@ -60,12 +60,34 @@ graph TD
 
 ## Technologies
 
-- Python 3
+- Python 3.12+
 - FastAPI
 - PostgreSQL
 - PDF parsing with layout-aware heuristics
 - CLI-based batch orchestration
 - Pytest for backend contracts and regression tests
+
+## Local setup
+
+```bash
+# From repository root
+python -m venv backend/.venv
+source backend/.venv/bin/activate   # Windows: backend\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+python -m pytest backend/tests -q
+```
+
+Copy `backend/.env.example` to `backend/.env` and set database credentials.
+
+### Docker (API + PostgreSQL)
+
+```bash
+docker compose up --build
+```
+
+API: http://localhost:8000 — Postgres: localhost:5432 (`natacion_chile` / `postgres` / `postgres`).
+
+See also `backend/pyproject.toml`, `backend/Dockerfile`, and `ci/README.md`.
 
 ## Key files
 

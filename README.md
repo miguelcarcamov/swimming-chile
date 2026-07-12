@@ -36,6 +36,10 @@ docs/      Cross-project roadmap, plans and portfolio-level documentation.
 
 Operational agent rules and tool-specific metadata may also live at the repository root when required by the development workflow.
 
+- [Agent conventions (English)](conventions/AGENTS.en.md)
+- [CI scripts and workflows](ci/README.md)
+- [Project audit (2026-07-11)](docs/audit/2026-07-11-project-audit.md)
+
 ## Tech stack
 
 - **Backend:** Python, FastAPI, PostgreSQL, CLI pipelines.

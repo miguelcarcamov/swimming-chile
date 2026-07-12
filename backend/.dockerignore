@@ -1,0 +1,9 @@
+# Docker build context: exclude large data and secrets
+backend/data/raw/
+backend/data/staging/
+**/__pycache__/
+**/.pytest_cache/
+**/.venv/
+**/.env
+**/.env.*
+!**/.env.example

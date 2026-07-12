@@ -13,7 +13,7 @@ testing:
   strict_tdd: true
   test_runner:
     framework: pytest
-    command: backend\.venv\Scripts\python.exe -m pytest
+    command: python -m pytest backend/tests
   layers:
     unit:
       available: true
